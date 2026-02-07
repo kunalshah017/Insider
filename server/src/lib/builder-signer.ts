@@ -1,11 +1,16 @@
 import crypto from "crypto";
 
 /**
- * Builder API credentials from environment
+ * Get Builder API credentials from environment
+ * Read inside function to ensure dotenv has loaded
  */
-const BUILDER_API_KEY = process.env.POLY_BUILDER_API_KEY || "";
-const BUILDER_SECRET = process.env.POLY_BUILDER_SECRET || "";
-const BUILDER_PASSPHRASE = process.env.POLY_BUILDER_PASSPHRASE || "";
+function getBuilderCredentials() {
+  return {
+    apiKey: process.env.POLY_BUILDER_API_KEY || "",
+    secret: process.env.POLY_BUILDER_SECRET || "",
+    passphrase: process.env.POLY_BUILDER_PASSPHRASE || "",
+  };
+}
 
 interface SignParams {
   timestamp: string;
@@ -20,14 +25,14 @@ interface SignParams {
  * Signature format: HMAC-SHA256(secret, timestamp + method + path + body)
  * The signature is base64 encoded
  */
-function generateSignature(params: SignParams): string {
+function generateSignature(params: SignParams, secret: string): string {
   const { timestamp, method, path, body = "" } = params;
 
   // Create the message to sign: timestamp + method + path + body
   const message = timestamp + method.toUpperCase() + path + body;
 
   // Create HMAC-SHA256 signature
-  const hmac = crypto.createHmac("sha256", BUILDER_SECRET);
+  const hmac = crypto.createHmac("sha256", secret);
   hmac.update(message);
 
   // Return base64 encoded signature
@@ -44,16 +49,18 @@ function generateSignature(params: SignParams): string {
  * - POLY_BUILDER_SIGNATURE: HMAC-SHA256 signature
  */
 export function signBuilderHeaders(params: SignParams): Record<string, string> {
-  if (!BUILDER_API_KEY || !BUILDER_SECRET || !BUILDER_PASSPHRASE) {
+  const { apiKey, secret, passphrase } = getBuilderCredentials();
+
+  if (!apiKey || !secret || !passphrase) {
     throw new Error("Builder API credentials not configured");
   }
 
-  const signature = generateSignature(params);
+  const signature = generateSignature(params, secret);
 
   return {
-    "POLY-BUILDER-API-KEY": BUILDER_API_KEY,
+    "POLY-BUILDER-API-KEY": apiKey,
     "POLY-BUILDER-TIMESTAMP": params.timestamp,
-    "POLY-BUILDER-PASSPHRASE": BUILDER_PASSPHRASE,
+    "POLY-BUILDER-PASSPHRASE": passphrase,
     "POLY-BUILDER-SIGNATURE": signature,
   };
 }
@@ -62,5 +69,6 @@ export function signBuilderHeaders(params: SignParams): Record<string, string> {
  * Validate that all Builder credentials are configured
  */
 export function validateBuilderCredentials(): boolean {
-  return !!(BUILDER_API_KEY && BUILDER_SECRET && BUILDER_PASSPHRASE);
+  const { apiKey, secret, passphrase } = getBuilderCredentials();
+  return !!(apiKey && secret && passphrase);
 }

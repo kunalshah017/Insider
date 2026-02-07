@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 import { orderRouter } from "./routes/order.js";
 import { geoblockRouter } from "./routes/geoblock.js";
 import { healthRouter } from "./routes/health.js";
+import { signRouter } from "./routes/sign.js";
 
 dotenv.config();
 
@@ -14,37 +15,29 @@ const PORT = process.env.PORT || 3001;
 // Security middleware
 app.use(helmet());
 
-// CORS configuration
-const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(",") || [];
+// CORS configuration - temporarily allow all origins for development
 app.use(
   cors({
-    origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps or curl)
-      if (!origin) return callback(null, true);
-
-      // Allow chrome-extension:// origins
-      if (origin.startsWith("chrome-extension://")) {
-        return callback(null, true);
-      }
-
-      // Check against allowed origins
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-
-      callback(new Error("Not allowed by CORS"));
-    },
+    origin: true, // Allow all origins
     credentials: true,
   }),
 );
 
-// Body parsing
-app.use(express.json());
+// Body parsing - also preserve raw body for signature verification
+app.use(
+  express.json({
+    verify: (req: express.Request, _res, buf) => {
+      // Store raw body for routes that need it (like order submission)
+      (req as any).rawBody = buf.toString();
+    },
+  }),
+);
 
 // Routes
 app.use("/api/health", healthRouter);
 app.use("/api/order", orderRouter);
 app.use("/api/geoblock", geoblockRouter);
+app.use("/api/sign", signRouter);
 
 // Error handling middleware
 app.use(
