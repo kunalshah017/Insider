@@ -20,14 +20,14 @@ function cleanSlug(slug: string): string {
   } catch {
     // If decoding fails, use as-is
   }
-  
+
   // Remove trailing ellipsis (both Unicode and HTML entity forms)
   cleaned = cleaned.replace(/[…]+$/, '');
   cleaned = cleaned.replace(/\.{3,}$/, '');
-  
+
   // Remove any trailing special characters
   cleaned = cleaned.replace(/[^\w-]+$/, '');
-  
+
   return cleaned;
 }
 
@@ -46,7 +46,7 @@ export function isPolymarketUrl(url: string): boolean {
 
 /**
  * Parse a Polymarket URL to extract the type and slug
- * 
+ *
  * URL formats:
  * - Event: https://polymarket.com/event/{slug}
  * - Market: https://polymarket.com/market/{slug}
@@ -58,7 +58,7 @@ export function parsePolymarketUrl(url: string): ParsedPolymarketUrl | null {
 
   // Handle both full URLs and partial text
   let pathname: string;
-  
+
   try {
     const parsed = new URL(url);
     pathname = parsed.pathname;
@@ -103,10 +103,8 @@ export function parsePolymarketUrl(url: string): ParsedPolymarketUrl | null {
 export function extractPolymarketUrls(text: string): ParsedPolymarketUrl[] {
   const urlRegex = /(?:https?:\/\/)?(?:www\.)?polymarket\.com\/(?:event|market)\/[^\s?#]+/gi;
   const matches = text.match(urlRegex) || [];
-  
-  return matches
-    .map(parsePolymarketUrl)
-    .filter((parsed): parsed is ParsedPolymarketUrl => parsed !== null);
+
+  return matches.map(parsePolymarketUrl).filter((parsed): parsed is ParsedPolymarketUrl => parsed !== null);
 }
 
 /**
@@ -160,7 +158,7 @@ export function formatEndDate(dateString: string): string {
   if (diffDays <= 7) {
     return `Ends in ${diffDays} days`;
   }
-  
+
   return date.toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',

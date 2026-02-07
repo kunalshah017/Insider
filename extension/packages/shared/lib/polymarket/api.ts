@@ -56,7 +56,7 @@ export function parseMarket(market: PolymarketMarket): ParsedMarket {
  * This bypasses CORS restrictions since background scripts can make cross-origin requests
  */
 async function sendToBackground<T>(message: Record<string, unknown>): Promise<T | null> {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     chrome.runtime.sendMessage(message, (response: { data?: T; error?: string }) => {
       if (chrome.runtime.lastError) {
         console.error('[Polymarket] Chrome runtime error:', chrome.runtime.lastError.message);
@@ -108,10 +108,7 @@ export async function fetchMarketBySlug(slug: string): Promise<PolymarketMarket 
 /**
  * Fetch current price for a token from CLOB API (via background script)
  */
-export async function fetchPrice(
-  tokenId: string,
-  side: 'buy' | 'sell' = 'buy'
-): Promise<number | null> {
+export async function fetchPrice(tokenId: string, side: 'buy' | 'sell' = 'buy'): Promise<number | null> {
   try {
     const data = await sendToBackground<PolymarketPrice>({
       type: 'FETCH_PRICE',
@@ -146,13 +143,10 @@ export async function fetchOrderbook(tokenId: string): Promise<Orderbook | null>
  */
 export async function fetchMarketPrices(
   yesTokenId: string,
-  noTokenId: string
+  noTokenId: string,
 ): Promise<{ yes: number; no: number } | null> {
   try {
-    const [yesPrice, noPrice] = await Promise.all([
-      fetchPrice(yesTokenId, 'buy'),
-      fetchPrice(noTokenId, 'buy'),
-    ]);
+    const [yesPrice, noPrice] = await Promise.all([fetchPrice(yesTokenId, 'buy'), fetchPrice(noTokenId, 'buy')]);
 
     if (yesPrice === null || noPrice === null) {
       return null;

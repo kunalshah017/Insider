@@ -22,9 +22,7 @@ chrome.runtime.onMessage.addListener((message: MessageType, _sender, sendRespons
     try {
       switch (message.type) {
         case 'FETCH_EVENT': {
-          const response = await fetch(
-            `${GAMMA_API_URL}/events?slug=${encodeURIComponent(message.slug)}`
-          );
+          const response = await fetch(`${GAMMA_API_URL}/events?slug=${encodeURIComponent(message.slug)}`);
           if (!response.ok) {
             sendResponse({ error: `HTTP ${response.status}` });
             return;
@@ -35,9 +33,7 @@ chrome.runtime.onMessage.addListener((message: MessageType, _sender, sendRespons
         }
 
         case 'FETCH_MARKET': {
-          const response = await fetch(
-            `${GAMMA_API_URL}/markets?slug=${encodeURIComponent(message.slug)}`
-          );
+          const response = await fetch(`${GAMMA_API_URL}/markets?slug=${encodeURIComponent(message.slug)}`);
           if (!response.ok) {
             sendResponse({ error: `HTTP ${response.status}` });
             return;
@@ -49,7 +45,7 @@ chrome.runtime.onMessage.addListener((message: MessageType, _sender, sendRespons
 
         case 'FETCH_PRICE': {
           const response = await fetch(
-            `${CLOB_API_URL}/price?token_id=${encodeURIComponent(message.tokenId)}&side=${message.side}`
+            `${CLOB_API_URL}/price?token_id=${encodeURIComponent(message.tokenId)}&side=${message.side}`,
           );
           if (!response.ok) {
             sendResponse({ error: `HTTP ${response.status}` });
@@ -61,9 +57,7 @@ chrome.runtime.onMessage.addListener((message: MessageType, _sender, sendRespons
         }
 
         case 'FETCH_ORDERBOOK': {
-          const response = await fetch(
-            `${CLOB_API_URL}/book?token_id=${encodeURIComponent(message.tokenId)}`
-          );
+          const response = await fetch(`${CLOB_API_URL}/book?token_id=${encodeURIComponent(message.tokenId)}`);
           if (!response.ok) {
             sendResponse({ error: `HTTP ${response.status}` });
             return;
