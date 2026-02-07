@@ -45,6 +45,14 @@ export function InlineTradingPanel({
     const [amount, setAmount] = useState('');
     const [balance, setBalance] = useState<number | null>(null);
     const [orderSuccess, setOrderSuccess] = useState(false);
+
+    // Order type: 'market' or 'limit'
+    const [orderType, setOrderType] = useState<'market' | 'limit'>('market');
+    // Limit price in cents (e.g., 34 for 34¢)
+    const [limitPriceCents, setLimitPriceCents] = useState('');
+
+    // Polymarket minimum order size is 5 shares
+    const MIN_SHARES = 5;
     const [view, setView] = useState<PanelView>('order');
     const [tokenCheck, setTokenCheck] = useState<TokenCheckResult | null>(null);
     const [isCheckingRequirements, setIsCheckingRequirements] = useState(false);
@@ -81,13 +89,22 @@ export function InlineTradingPanel({
 
     if (!isOpen) return null;
 
+    // Calculate effective price (market uses current price, limit uses user input)
+    const effectivePrice = orderType === 'market'
+        ? price
+        : (parseFloat(limitPriceCents) || 0) / 100;
+
     const numAmount = parseFloat(amount) || 0;
-    const estimatedShares = numAmount > 0 ? numAmount / price : 0;
+    const estimatedShares = numAmount > 0 && effectivePrice > 0 ? numAmount / effectivePrice : 0;
     const potentialReturn = estimatedShares * 1;
     const potentialProfit = potentialReturn - numAmount;
 
+    // For limit orders, validate price is reasonable
+    const isLimitPriceValid = orderType === 'market' || (effectivePrice > 0 && effectivePrice < 1);
+
     const handleSubmit = async () => {
-        if (numAmount <= 0 || !session || !address) return;
+        if (estimatedShares < MIN_SHARES || !session || !address) return;
+        if (orderType === 'limit' && !isLimitPriceValid) return;
 
         // Check requirements before submitting
         setIsCheckingRequirements(true);
@@ -118,7 +135,7 @@ export function InlineTradingPanel({
             tokenId,
             side: 'buy' as const,
             size: estimatedShares,
-            price,
+            price: effectivePrice,
             negRisk: false, // TODO: detect from market data
             tickSize: '0.01',
         };
@@ -130,14 +147,17 @@ export function InlineTradingPanel({
                 onClose();
                 setOrderSuccess(false);
                 setAmount('');
+                setLimitPriceCents('');
+                setOrderType('market');
             }, 2000);
         }
     };
 
     const handleApprove = async () => {
-        if (!address) return;
+        if (!address || numAmount <= 0) return;
 
-        const success = await approveToken(address, false);
+        // Approve only the exact amount needed for this order
+        const success = await approveToken(address, numAmount, false);
         if (success) {
             // Re-check requirements
             const requirements = await checkRequirements(address, numAmount, false);
@@ -358,9 +378,12 @@ export function InlineTradingPanel({
                         <div style={{ fontSize: '13px', fontWeight: 600, color: '#fbbf24', marginBottom: '6px' }}>
                             ⚠️ Approval Required
                         </div>
-                        <div style={{ fontSize: '11px', color: '#a3a3a3' }}>
-                            You need to approve USDC.e to trade on Polymarket.
-                            This is a one-time transaction that requires a small amount of POL for gas.
+                        <div style={{ fontSize: '11px', color: '#a3a3a3', marginBottom: '8px' }}>
+                            Approve <span style={{ color: '#e7e9ea', fontWeight: 600 }}>${numAmount.toFixed(2)} USDC.e</span> for this trade.
+                            This requires a small amount of POL for gas.
+                        </div>
+                        <div style={{ fontSize: '10px', color: '#71767b', fontStyle: 'italic' }}>
+                            💡 We only approve the exact amount needed for each trade.
                         </div>
                     </div>
 
@@ -397,7 +420,7 @@ export function InlineTradingPanel({
                                 opacity: isApproving ? 0.7 : 1,
                             }}
                         >
-                            {isApproving ? 'Approving...' : 'Approve USDC.e'}
+                            {isApproving ? 'Approving...' : `Approve $${numAmount.toFixed(2)}`}
                         </button>
                         <button
                             onClick={() => setView('order')}
@@ -443,8 +466,111 @@ export function InlineTradingPanel({
                         )}
                     </div>
 
+                    {/* Order Type Toggle */}
+                    <div
+                        style={{
+                            display: 'flex',
+                            marginBottom: '12px',
+                            background: 'rgba(255, 255, 255, 0.05)',
+                            borderRadius: '8px',
+                            padding: '3px',
+                        }}
+                    >
+                        <button
+                            onClick={() => setOrderType('market')}
+                            style={{
+                                flex: 1,
+                                padding: '8px',
+                                background: orderType === 'market' ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
+                                border: 'none',
+                                borderRadius: '6px',
+                                color: orderType === 'market' ? '#e7e9ea' : '#71767b',
+                                fontSize: '12px',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease',
+                            }}
+                        >
+                            Market
+                        </button>
+                        <button
+                            onClick={() => {
+                                setOrderType('limit');
+                                if (!limitPriceCents) {
+                                    setLimitPriceCents(Math.round(price * 100).toString());
+                                }
+                            }}
+                            style={{
+                                flex: 1,
+                                padding: '8px',
+                                background: orderType === 'limit' ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
+                                border: 'none',
+                                borderRadius: '6px',
+                                color: orderType === 'limit' ? '#e7e9ea' : '#71767b',
+                                fontSize: '12px',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease',
+                            }}
+                        >
+                            Limit
+                        </button>
+                    </div>
+
+                    {/* Limit Price Input (only shown for limit orders) */}
+                    {orderType === 'limit' && (
+                        <div style={{ marginBottom: '12px' }}>
+                            <div style={{ fontSize: '11px', color: '#71767b', marginBottom: '6px' }}>
+                                Limit Price (1-99¢)
+                            </div>
+                            <div
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    background: 'rgba(255, 255, 255, 0.05)',
+                                    border: `1px solid ${!isLimitPriceValid && limitPriceCents ? 'rgba(239, 68, 68, 0.5)' : 'rgba(255, 255, 255, 0.1)'}`,
+                                    borderRadius: '8px',
+                                    padding: '10px',
+                                }}
+                            >
+                                <input
+                                    type="number"
+                                    value={limitPriceCents}
+                                    onChange={(e) => setLimitPriceCents(e.target.value)}
+                                    placeholder={Math.round(price * 100).toString()}
+                                    min="1"
+                                    max="99"
+                                    step="1"
+                                    style={{
+                                        flex: 1,
+                                        background: 'transparent',
+                                        border: 'none',
+                                        color: '#e7e9ea',
+                                        fontSize: '16px',
+                                        outline: 'none',
+                                        width: '100%',
+                                    }}
+                                />
+                                <span style={{ color: '#71767b', marginLeft: '8px', fontSize: '14px' }}>¢</span>
+                            </div>
+                            {!isLimitPriceValid && limitPriceCents && (
+                                <div style={{ fontSize: '10px', color: '#ef4444', marginTop: '4px' }}>
+                                    Price must be between 1¢ and 99¢
+                                </div>
+                            )}
+                            {orderType === 'limit' && effectivePrice > 0 && effectivePrice < price && (
+                                <div style={{ fontSize: '10px', color: '#22c55e', marginTop: '4px' }}>
+                                    💡 Your order will fill when price drops to {Math.round(effectivePrice * 100)}¢
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     {/* Amount input */}
                     <div style={{ marginBottom: '12px' }}>
+                        <div style={{ fontSize: '11px', color: '#71767b', marginBottom: '6px' }}>
+                            Amount (USD)
+                        </div>
                         <div
                             style={{
                                 display: 'flex',
@@ -475,7 +601,7 @@ export function InlineTradingPanel({
                             />
                         </div>
                         <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
-                            {[1, 5, 10, 25].map((val) => (
+                            {[10, 25, 50, 100].map((val) => (
                                 <button
                                     key={val}
                                     onClick={() => setAmount(val.toString())}
@@ -497,7 +623,7 @@ export function InlineTradingPanel({
                     </div>
 
                     {/* Order preview */}
-                    {numAmount > 0 && (
+                    {numAmount > 0 && effectivePrice > 0 && (
                         <div
                             style={{
                                 background: bgAccent,
@@ -508,8 +634,10 @@ export function InlineTradingPanel({
                             }}
                         >
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                                <span style={{ color: '#71767b' }}>Price</span>
-                                <span style={{ color: '#e7e9ea' }}>{formatPriceAsPercent(price)}</span>
+                                <span style={{ color: '#71767b' }}>
+                                    {orderType === 'market' ? 'Market Price' : 'Limit Price'}
+                                </span>
+                                <span style={{ color: '#e7e9ea' }}>{formatPriceAsPercent(effectivePrice)}</span>
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
                                 <span style={{ color: '#71767b' }}>Shares</span>
@@ -553,6 +681,21 @@ export function InlineTradingPanel({
                         </div>
                     )}
 
+                    {/* Minimum order size warning */}
+                    {numAmount > 0 && effectivePrice > 0 && estimatedShares < MIN_SHARES && (
+                        <div style={{
+                            background: 'rgba(251, 191, 36, 0.15)',
+                            border: '1px solid rgba(251, 191, 36, 0.3)',
+                            borderRadius: '6px',
+                            padding: '8px',
+                            marginBottom: '12px',
+                            fontSize: '11px',
+                            color: '#fbbf24',
+                        }}>
+                            Minimum {MIN_SHARES} shares (${(MIN_SHARES * effectivePrice).toFixed(2)} at {orderType === 'market' ? 'current' : 'limit'} price)
+                        </div>
+                    )}
+
                     {orderSuccess && (
                         <div style={{
                             background: 'rgba(34, 197, 94, 0.15)',
@@ -569,7 +712,7 @@ export function InlineTradingPanel({
                     {/* Submit button */}
                     <button
                         onClick={handleSubmit}
-                        disabled={isSubmitting || isCheckingRequirements || numAmount <= 0 || (balance !== null && numAmount > balance)}
+                        disabled={isSubmitting || isCheckingRequirements || estimatedShares < MIN_SHARES || (balance !== null && numAmount > balance) || (orderType === 'limit' && !isLimitPriceValid)}
                         style={{
                             width: '100%',
                             padding: '12px',
@@ -581,11 +724,18 @@ export function InlineTradingPanel({
                             color: 'white',
                             fontSize: '13px',
                             fontWeight: 600,
-                            cursor: numAmount <= 0 || (balance !== null && numAmount > balance) ? 'not-allowed' : 'pointer',
-                            opacity: numAmount <= 0 || (balance !== null && numAmount > balance) ? 0.5 : 1,
+                            cursor: estimatedShares < MIN_SHARES || (balance !== null && numAmount > balance) || (orderType === 'limit' && !isLimitPriceValid) ? 'not-allowed' : 'pointer',
+                            opacity: estimatedShares < MIN_SHARES || (balance !== null && numAmount > balance) || (orderType === 'limit' && !isLimitPriceValid) ? 0.5 : 1,
                         }}
                     >
-                        {isCheckingRequirements ? 'Checking...' : isSubmitting ? 'Submitting...' : `Buy ${outcome} for $${numAmount.toFixed(2)}`}
+                        {isCheckingRequirements
+                            ? 'Checking...'
+                            : isSubmitting
+                                ? 'Submitting...'
+                                : orderType === 'market'
+                                    ? `Buy ${outcome} for $${numAmount.toFixed(2)}`
+                                    : `Limit Buy ${outcome} @ ${Math.round(effectivePrice * 100)}¢`
+                        }
                     </button>
                 </div>
             )}

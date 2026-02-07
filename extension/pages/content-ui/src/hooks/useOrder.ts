@@ -23,7 +23,9 @@ import {
 } from '../utils/order-builder';
 import {
   checkTradingRequirements,
+  checkAllowance,
   buildApprovalData,
+  toRawAmount,
   USDC_E_ADDRESS,
   CTF_EXCHANGE_ADDRESS,
   NEG_RISK_CTF_EXCHANGE_ADDRESS,
@@ -46,7 +48,7 @@ interface UseOrderResult {
   submitOrder: (order: OrderParams, session: TradingSession) => Promise<boolean>;
   checkSession: () => Promise<TradingSession | null>;
   checkRequirements: (address: string, amount: number, negRisk: boolean) => Promise<TokenCheckResult | null>;
-  approveToken: (address: string, negRisk: boolean) => Promise<boolean>;
+  approveToken: (address: string, amount: number, negRisk: boolean) => Promise<boolean>;
 }
 
 export function useOrder(): UseOrderResult {
@@ -100,42 +102,83 @@ export function useOrder(): UseOrderResult {
   );
 
   /**
-   * Approve USDC.e for CTF Exchange
+   * Wait for a transaction to be mined by polling for the allowance change
    */
-  const approveToken = useCallback(async (address: string, negRisk: boolean): Promise<boolean> => {
-    setIsApproving(true);
-    setError(null);
+  const waitForApprovalConfirmation = useCallback(
+    async (address: string, spender: string, expectedAmount: number, maxAttempts: number = 20): Promise<boolean> => {
+      const ethCall = async (to: string, data: string): Promise<string> => {
+        return await ethereumBridge.ethCall(to, data);
+      };
 
-    try {
-      console.log('[Insider] Requesting USDC.e approval...');
+      for (let i = 0; i < maxAttempts; i++) {
+        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds between checks
 
-      const spender = negRisk ? NEG_RISK_CTF_EXCHANGE_ADDRESS : CTF_EXCHANGE_ADDRESS;
-      const approvalData = buildApprovalData(spender);
+        try {
+          const { rawAllowance } = await checkAllowance(address, spender, ethCall);
+          const requiredRaw = toRawAmount(expectedAmount);
 
-      const { hash } = await ethereumBridge.sendTransaction({
-        to: USDC_E_ADDRESS,
-        from: address,
-        data: approvalData,
-      });
+          if (rawAllowance >= requiredRaw) {
+            console.log(`[Insider] Approval confirmed after ${i + 1} attempts`);
+            return true;
+          }
+          console.log(`[Insider] Waiting for approval... attempt ${i + 1}/${maxAttempts}`);
+        } catch (err) {
+          console.warn('[Insider] Error checking allowance:', err);
+        }
+      }
 
-      console.log('[Insider] Approval transaction sent:', hash);
-      console.log('[Insider] Waiting for confirmation...');
-
-      // Wait a bit for the transaction to be mined
-      // In production, you'd want to poll for the receipt
-      await new Promise(resolve => setTimeout(resolve, 5000));
-
-      console.log('[Insider] Approval confirmed!');
-      return true;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to approve token';
-      setError(errorMessage);
-      console.error('[Insider] Approval error:', err);
       return false;
-    } finally {
-      setIsApproving(false);
-    }
-  }, []);
+    },
+    [],
+  );
+
+  /**
+   * Approve USDC.e for CTF Exchange
+   * @param address User's wallet address
+   * @param amount The exact amount to approve (in USDC)
+   * @param negRisk Whether this is for neg-risk markets
+   */
+  const approveToken = useCallback(
+    async (address: string, amount: number, negRisk: boolean): Promise<boolean> => {
+      setIsApproving(true);
+      setError(null);
+
+      try {
+        console.log(`[Insider] Requesting USDC.e approval for $${amount.toFixed(2)}...`);
+
+        const spender = negRisk ? NEG_RISK_CTF_EXCHANGE_ADDRESS : CTF_EXCHANGE_ADDRESS;
+        const approvalData = buildApprovalData(spender, amount);
+
+        const { hash } = await ethereumBridge.sendTransaction({
+          to: USDC_E_ADDRESS,
+          from: address,
+          data: approvalData,
+        });
+
+        console.log('[Insider] Approval transaction sent:', hash);
+        console.log('[Insider] Waiting for confirmation...');
+
+        // Poll for the approval to be confirmed on-chain
+        const confirmed = await waitForApprovalConfirmation(address, spender, amount);
+
+        if (confirmed) {
+          console.log('[Insider] Approval confirmed!');
+          return true;
+        } else {
+          console.warn('[Insider] Approval may not have been confirmed yet, but continuing...');
+          return true; // Return true anyway as the tx was sent
+        }
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to approve token';
+        setError(errorMessage);
+        console.error('[Insider] Approval error:', err);
+        return false;
+      } finally {
+        setIsApproving(false);
+      }
+    },
+    [waitForApprovalConfirmation],
+  );
 
   const submitOrder = useCallback(async (order: OrderParams, session: TradingSession): Promise<boolean> => {
     setIsSubmitting(true);

@@ -1,52 +1,139 @@
 import '@src/Popup.css';
-import { t } from '@extension/i18n';
-import { PROJECT_URL_OBJECT, useStorage, withErrorBoundary, withSuspense } from '@extension/shared';
-import { exampleThemeStorage } from '@extension/storage';
-import { cn, ErrorDisplay, LoadingSpinner, ToggleButton } from '@extension/ui';
-import { WalletConnect } from './components';
+import { withErrorBoundary, withSuspense } from '@extension/shared';
+import { cn, ErrorDisplay, LoadingSpinner } from '@extension/ui';
+import { OrderManagement } from './components';
+import { useState, useRef, useEffect } from 'react';
+import { useWalletContext } from './providers/WalletContext';
 
-const notificationOptions = {
-  type: 'basic',
-  iconUrl: chrome.runtime.getURL('icon-34.png'),
-  title: 'Injecting content script error',
-  message: 'You cannot inject script here!',
-} as const;
+type TabType = 'holdings' | 'orders';
 
 const Popup = () => {
-  const { isLight } = useStorage(exampleThemeStorage);
-  const logo = isLight ? 'popup/logo_vertical.svg' : 'popup/logo_vertical_dark.svg';
+  const [activeTab, setActiveTab] = useState<TabType>('holdings');
+  const [showProfile, setShowProfile] = useState(false);
+  const { session, isLoading, clearSession } = useWalletContext();
+  const profileRef = useRef<HTMLDivElement>(null);
 
-  const goGithubSite = () => chrome.tabs.create(PROJECT_URL_OBJECT);
+  // Close profile dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
+        setShowProfile(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
-  const injectContentScript = async () => {
-    const [tab] = await chrome.tabs.query({ currentWindow: true, active: true });
+  // Truncate address for display
+  const truncatedAddress = session?.walletAddress
+    ? `${session.walletAddress.slice(0, 6)}...${session.walletAddress.slice(-4)}`
+    : '';
 
-    if (tab.url!.startsWith('about:') || tab.url!.startsWith('chrome:')) {
-      chrome.notifications.create('inject-error', notificationOptions);
-    }
+  const truncatedSafeAddress = session?.safeAddress
+    ? `${session.safeAddress.slice(0, 6)}...${session.safeAddress.slice(-4)}`
+    : '';
 
-    await chrome.scripting
-      .executeScript({
-        target: { tabId: tab.id! },
-        files: ['/content-runtime/example.iife.js', '/content-runtime/all.iife.js'],
-      })
-      .catch(err => {
-        // Handling errors related to other paths
-        if (err.message.includes('Cannot access a chrome:// URL')) {
-          chrome.notifications.create('inject-error', notificationOptions);
-        }
-      });
+  // Generate blockie-style gradient from address
+  const getAddressGradient = (address: string) => {
+    if (!address) return 'linear-gradient(135deg, #6366f1, #8b5cf6)';
+    const hash = address.toLowerCase().slice(2, 10);
+    const hue1 = parseInt(hash.slice(0, 4), 16) % 360;
+    const hue2 = (hue1 + 40) % 360;
+    return `linear-gradient(135deg, hsl(${hue1}, 70%, 50%), hsl(${hue2}, 70%, 40%))`;
   };
 
   return (
-    <div className={cn('App', isLight ? 'bg-slate-50' : 'bg-gray-800')}>
-      <header className={cn('App-header', isLight ? 'text-gray-900' : 'text-gray-100')}>
-        <div style={{ flex: 1, width: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-          <h1 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '0.5rem' }}>Polymarket Insider</h1>
-          <WalletConnect />
+    <div className="popup-container">
+      {/* Header with logo and profile */}
+      <header className="popup-header">
+        <div className="header-left">
+          <img src="/logo_horizontal_dark.png" alt="Insider" className="header-logo" />
+          <span className="header-tag">Beta</span>
         </div>
-        <ToggleButton>{t('toggleTheme')}</ToggleButton>
+
+        <div ref={profileRef} style={{ position: 'relative' }}>
+          {isLoading ? (
+            <div className="loading-spinner-small" />
+          ) : session ? (
+            <>
+              <button
+                className={cn('profile-btn', showProfile && 'active')}
+                onClick={() => setShowProfile(!showProfile)}
+                style={{ background: getAddressGradient(session.walletAddress || '') }}
+              />
+
+              {showProfile && (
+                <div className="profile-dropdown">
+                  <div className="dropdown-label">EOA Wallet</div>
+                  <div className="address-row">
+                    <span>{truncatedAddress}</span>
+                    <button
+                      className="copy-btn"
+                      onClick={() => navigator.clipboard.writeText(session.walletAddress || '')}
+                      title="Copy"
+                    >
+                      📋
+                    </button>
+                  </div>
+
+                  <div className="dropdown-label">Safe (Proxy)</div>
+                  <div className="address-row">
+                    <span>{truncatedSafeAddress}</span>
+                    <button
+                      className="copy-btn"
+                      onClick={() => navigator.clipboard.writeText(session.safeAddress || '')}
+                      title="Copy"
+                    >
+                      📋
+                    </button>
+                  </div>
+
+                  <button className="disconnect-btn" onClick={clearSession}>
+                    Disconnect Wallet
+                  </button>
+                </div>
+              )}
+            </>
+          ) : (
+            <button
+              className="profile-btn"
+              style={{ background: 'var(--bg-tertiary)', cursor: 'default' }}
+            />
+          )}
+        </div>
       </header>
+
+      {/* Main Tabs */}
+      <nav className="main-tabs">
+        <button
+          className={cn('main-tab', activeTab === 'holdings' && 'active')}
+          onClick={() => setActiveTab('holdings')}
+        >
+          Holdings
+        </button>
+        <button
+          className={cn('main-tab', activeTab === 'orders' && 'active')}
+          onClick={() => setActiveTab('orders')}
+        >
+          Orders
+        </button>
+      </nav>
+
+      {/* Content */}
+      <main className="main-content">
+        {!session ? (
+          <div className="not-connected-state">
+            <div className="not-connected-icon">🔗</div>
+            <h2>Connect Your Wallet</h2>
+            <p>
+              Go to Twitter/X and find a tweet with a Polymarket link.
+              Click YES or NO on the trading card to connect.
+            </p>
+          </div>
+        ) : (
+          <OrderManagement activeTab={activeTab} />
+        )}
+      </main>
     </div>
   );
 };

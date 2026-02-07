@@ -36,7 +36,7 @@ const manifest = {
     'https://polymarket.com/*',
     'https://x.com/*',
   ],
-  permissions: ['storage', 'scripting', 'tabs', 'notifications', 'sidePanel'],
+  permissions: ['storage', 'scripting', 'tabs', 'notifications'],
   options_page: 'options/index.html',
   background: {
     service_worker: 'background.js',
@@ -50,6 +50,9 @@ const manifest = {
     newtab: 'new-tab/index.html',
   },
   icons: {
+    '16': 'icon-16.png',
+    '34': 'icon-34.png',
+    '48': 'icon-48.png',
     '128': 'icon-128.png',
   },
   content_scripts: [
@@ -65,9 +68,6 @@ const manifest = {
       matches: ['*://*/*'],
     },
   ],
-  side_panel: {
-    default_path: 'side-panel/index.html',
-  },
 } satisfies ManifestType;
 
 export default manifest;

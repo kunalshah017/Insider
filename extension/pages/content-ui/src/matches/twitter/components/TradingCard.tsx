@@ -7,8 +7,134 @@ import {
     formatEndDate,
     type ParsedMarket,
     type PolymarketEvent,
+    theme,
+    FONT_IMPORT_URL,
 } from '@extension/shared';
 import { InlineTradingPanel } from './InlineTradingPanel';
+
+// Inject font stylesheet
+const fontLink = document.createElement('link');
+fontLink.rel = 'stylesheet';
+fontLink.href = FONT_IMPORT_URL;
+document.head.appendChild(fontLink);
+
+// Theme-based styles
+const styles = {
+    card: {
+        background: '#0d1117', // Deeper dark theme
+        borderRadius: '16px',
+        border: '1px solid rgba(48, 54, 61, 0.8)',
+        overflow: 'hidden' as const,
+        width: '100%',
+        maxWidth: '520px',
+        fontFamily: theme.fonts.primary,
+        boxShadow: '0 12px 28px rgba(0, 0, 0, 0.5), 0 0 1px rgba(255,255,255,0.1)',
+        backdropFilter: 'blur(10px)',
+    },
+    header: {
+        position: 'relative' as const,
+        minHeight: '120px',
+        display: 'flex' as const,
+        flexDirection: 'column' as const,
+        background: 'rgba(22, 27, 34, 0.8)',
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+        borderBottom: '1px solid rgba(48, 54, 61, 0.6)',
+    },
+    headerBg: {
+        position: 'absolute' as const,
+        top: 0,
+        right: 0,
+        bottom: 0,
+        width: '65%',
+        zIndex: 0,
+    },
+    headerImage: {
+        width: '100%',
+        height: '100%',
+        objectFit: 'cover' as const,
+        maskImage: 'linear-gradient(to left, black 50%, transparent 100%)',
+        WebkitMaskImage: 'linear-gradient(to left, black 50%, transparent 100%)',
+        opacity: 0.8,
+        filter: 'sepia(10%) contrast(1.1)',
+        transition: 'all 0.5s ease',
+    },
+    headerContent: {
+        position: 'relative' as const,
+        zIndex: 1,
+        padding: '18px 20px',
+        display: 'flex' as const,
+        justifyContent: 'space-between',
+        alignItems: 'flex-start' as const,
+        height: '100%',
+        background: 'transparent',
+    },
+    title: {
+        fontSize: '17px',
+        fontWeight: 700,
+        color: '#f0f6fc',
+        lineHeight: 1.3,
+        marginBottom: '8px',
+        textShadow: '0 2px 8px rgba(0,0,0,0.6)',
+        letterSpacing: '-0.3px',
+    },
+    meta: {
+        fontSize: '12px',
+        color: '#8b949e',
+        display: 'flex' as const,
+        alignItems: 'center' as const,
+        gap: '8px',
+        fontWeight: 500,
+    },
+    priceContainer: {
+        display: 'flex' as const,
+        gap: '12px',
+        padding: '16px 20px',
+        background: '#0d1117',
+    },
+    yesButton: {
+        flex: 1,
+        display: 'flex' as const,
+        flexDirection: 'column' as const,
+        alignItems: 'center' as const,
+        justifyContent: 'center' as const,
+        padding: '16px',
+        background: 'linear-gradient(145deg, rgba(0, 217, 146, 0.12) 0%, rgba(0, 217, 146, 0.04) 100%)',
+        border: '1px solid rgba(0, 217, 146, 0.3)',
+        borderRadius: '12px',
+        cursor: 'pointer',
+        transition: 'all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+        fontFamily: theme.fonts.primary,
+        boxShadow: '0 4px 12px rgba(0, 217, 146, 0.08), inset 0 1px 1px rgba(255,255,255,0.05)',
+        position: 'relative' as const,
+        overflow: 'hidden' as const,
+    },
+    noButton: {
+        flex: 1,
+        display: 'flex' as const,
+        flexDirection: 'column' as const,
+        alignItems: 'center' as const,
+        justifyContent: 'center' as const,
+        padding: '16px',
+        background: 'linear-gradient(145deg, rgba(255, 107, 107, 0.12) 0%, rgba(255, 107, 107, 0.04) 100%)',
+        border: '1px solid rgba(255, 107, 107, 0.3)',
+        borderRadius: '12px',
+        cursor: 'pointer',
+        transition: 'all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+        fontFamily: theme.fonts.primary,
+        boxShadow: '0 4px 12px rgba(255, 107, 107, 0.08), inset 0 1px 1px rgba(255,255,255,0.05)',
+        position: 'relative' as const,
+        overflow: 'hidden' as const,
+    },
+    footer: {
+        display: 'flex' as const,
+        alignItems: 'center' as const,
+        justifyContent: 'space-between' as const,
+        padding: '12px 20px',
+        borderTop: '1px solid rgba(48, 54, 61, 0.6)',
+        background: 'rgba(22, 27, 34, 0.5)',
+    },
+};
 
 interface TradingCardProps {
     slug: string;
@@ -166,218 +292,134 @@ function SingleMarketCard({ data, fullUrl }: { data: SingleMarketData; fullUrl: 
     };
 
     return (
-        <div
-            style={{
-                background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
-                borderRadius: '16px',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                overflow: 'hidden',
-                width: '100%',
-                maxWidth: '500px',
-            }}
-        >
+        <div style={styles.card}>
             {/* Header */}
-            <div
-                style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px',
-                    padding: '16px',
-                    borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-                }}
-            >
-                {eventImage && (
-                    <img
-                        src={eventImage}
-                        alt=""
-                        style={{
-                            width: '48px',
-                            height: '48px',
-                            borderRadius: '8px',
-                            objectFit: 'cover',
-                        }}
-                    />
-                )}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                    <div
-                        style={{
-                            fontSize: '14px',
-                            fontWeight: 600,
-                            color: '#e7e9ea',
-                            lineHeight: 1.4,
-                            display: '-webkit-box',
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: 'vertical',
-                            overflow: 'hidden',
-                        }}
-                    >
-                        {title}
-                    </div>
-                    <div
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                            marginTop: '4px',
-                        }}
-                    >
-                        <span
-                            style={{
-                                fontSize: '11px',
-                                color: '#71767b',
-                            }}
-                        >
-                            {formatEndDate(market.endDate)}
-                        </span>
-                        <span style={{ color: '#71767b' }}>•</span>
-                        <span
-                            style={{
-                                fontSize: '11px',
-                                color: '#71767b',
-                            }}
-                        >
-                            Vol: {formatVolume(market.volume)}
-                        </span>
+            <div style={styles.header}>
+                <div style={styles.headerBg}>
+                    {eventImage && (
+                        <img
+                            src={eventImage}
+                            alt=""
+                            style={styles.headerImage}
+                        />
+                    )}
+                </div>
+                <div style={styles.headerContent}>
+                    <div style={{ flex: 1, paddingRight: '40%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                        <div style={styles.title}>
+                            {title}
+                        </div>
+                        <div style={styles.meta}>
+                            <span>{formatEndDate(market.endDate)}</span>
+                            <span>•</span>
+                            <span>Vol: {formatVolume(market.volume)}</span>
+                        </div>
                     </div>
                 </div>
-                <PolymarketLogo />
             </div>
 
             {/* Price Display */}
-            <div
-                style={{
-                    display: 'flex',
-                    gap: '12px',
-                    padding: '16px',
-                }}
-            >
+            <div style={styles.priceContainer}>
                 {/* YES Button */}
                 <button
                     onClick={() => openOrderPanel('YES', yesPrice)}
-                    style={{
-                        flex: 1,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        padding: '16px 12px',
-                        background: 'rgba(34, 197, 94, 0.15)',
-                        border: '1px solid rgba(34, 197, 94, 0.3)',
-                        borderRadius: '12px',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s ease',
-                    }}
+                    style={styles.yesButton}
                     onMouseEnter={(e) => {
-                        e.currentTarget.style.background = 'rgba(34, 197, 94, 0.25)';
+                        e.currentTarget.style.background = 'rgba(0, 217, 146, 0.25)';
                         e.currentTarget.style.transform = 'scale(1.02)';
                     }}
                     onMouseLeave={(e) => {
-                        e.currentTarget.style.background = 'rgba(34, 197, 94, 0.15)';
+                        e.currentTarget.style.background = theme.colors.accentGlow;
                         e.currentTarget.style.transform = 'scale(1)';
                     }}
                 >
                     <span
                         style={{
-                            fontSize: '12px',
-                            fontWeight: 500,
-                            color: '#22c55e',
-                            marginBottom: '4px',
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            color: theme.colors.accent,
+                            marginBottom: '2px',
+                            letterSpacing: '0.5px',
                         }}
                     >
                         YES
                     </span>
                     <span
                         style={{
-                            fontSize: '28px',
+                            fontSize: '26px',
                             fontWeight: 700,
-                            color: '#22c55e',
+                            color: theme.colors.accent,
+                            fontFamily: theme.fonts.mono,
                         }}
                     >
                         {formatPriceAsPercent(yesPrice)}
                     </span>
                     <span
                         style={{
-                            fontSize: '11px',
-                            color: '#71767b',
-                            marginTop: '4px',
+                            fontSize: '10px',
+                            color: theme.colors.textMuted,
+                            marginTop: '2px',
+                            fontFamily: theme.fonts.mono,
                         }}
                     >
-                        {Math.round(yesPrice * 100)}¢ per share
+                        {Math.round(yesPrice * 100)}¢/share
                     </span>
                 </button>
 
                 {/* NO Button */}
                 <button
                     onClick={() => openOrderPanel('NO', noPrice)}
-                    style={{
-                        flex: 1,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        padding: '16px 12px',
-                        background: 'rgba(239, 68, 68, 0.15)',
-                        border: '1px solid rgba(239, 68, 68, 0.3)',
-                        borderRadius: '12px',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s ease',
-                    }}
+                    style={styles.noButton}
                     onMouseEnter={(e) => {
-                        e.currentTarget.style.background = 'rgba(239, 68, 68, 0.25)';
+                        e.currentTarget.style.background = 'rgba(255, 107, 107, 0.25)';
                         e.currentTarget.style.transform = 'scale(1.02)';
                     }}
                     onMouseLeave={(e) => {
-                        e.currentTarget.style.background = 'rgba(239, 68, 68, 0.15)';
+                        e.currentTarget.style.background = 'rgba(255, 107, 107, 0.15)';
                         e.currentTarget.style.transform = 'scale(1)';
                     }}
                 >
                     <span
                         style={{
-                            fontSize: '12px',
-                            fontWeight: 500,
-                            color: '#ef4444',
-                            marginBottom: '4px',
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            color: theme.colors.accentSell,
+                            marginBottom: '2px',
+                            letterSpacing: '0.5px',
                         }}
                     >
                         NO
                     </span>
                     <span
                         style={{
-                            fontSize: '28px',
+                            fontSize: '26px',
                             fontWeight: 700,
-                            color: '#ef4444',
+                            color: theme.colors.accentSell,
+                            fontFamily: theme.fonts.mono,
                         }}
                     >
                         {formatPriceAsPercent(noPrice)}
                     </span>
                     <span
                         style={{
-                            fontSize: '11px',
-                            color: '#71767b',
-                            marginTop: '4px',
+                            fontSize: '10px',
+                            color: theme.colors.textMuted,
+                            marginTop: '2px',
+                            fontFamily: theme.fonts.mono,
                         }}
                     >
-                        {Math.round(noPrice * 100)}¢ per share
+                        {Math.round(noPrice * 100)}¢/share
                     </span>
                 </button>
             </div>
 
             {/* Footer - hide when trading panel is open */}
             {!orderPanel.isOpen && (
-                <div
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: '12px 16px',
-                        borderTop: '1px solid rgba(255, 255, 255, 0.1)',
-                        background: 'rgba(0, 0, 0, 0.2)',
-                    }}
-                >
+                <div style={styles.footer}>
                     <span
                         style={{
-                            fontSize: '11px',
-                            color: '#71767b',
+                            fontSize: '10px',
+                            color: theme.colors.textMuted,
                         }}
                     >
                         Powered by Polymarket
@@ -388,8 +430,9 @@ function SingleMarketCard({ data, fullUrl }: { data: SingleMarketData; fullUrl: 
                         rel="noopener noreferrer"
                         style={{
                             fontSize: '11px',
-                            color: '#1d9bf0',
+                            color: theme.colors.accent,
                             textDecoration: 'none',
+                            fontWeight: 500,
                         }}
                     >
                         View on Polymarket →
@@ -441,92 +484,52 @@ function MultiMarketCard({ data, fullUrl }: { data: MultiMarketData; fullUrl: st
     };
 
     return (
-        <div
-            style={{
-                background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
-                borderRadius: '16px',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                overflow: 'hidden',
-                width: '100%',
-                maxWidth: '500px',
-            }}
-        >
+        <div style={styles.card}>
             {/* Header */}
-            <div
-                style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px',
-                    padding: '16px',
-                    borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-                }}
-            >
-                {data.eventImage && (
-                    <img
-                        src={data.eventImage}
-                        alt=""
-                        style={{
-                            width: '48px',
-                            height: '48px',
-                            borderRadius: '8px',
-                            objectFit: 'cover',
-                        }}
-                    />
-                )}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                    <div
-                        style={{
-                            fontSize: '14px',
-                            fontWeight: 600,
-                            color: '#e7e9ea',
-                            lineHeight: 1.4,
-                            display: '-webkit-box',
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: 'vertical',
-                            overflow: 'hidden',
-                        }}
-                    >
-                        {data.title}
-                    </div>
-                    <div
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                            marginTop: '4px',
-                        }}
-                    >
-                        <span
-                            style={{
-                                fontSize: '11px',
-                                color: '#1d9bf0',
-                                background: 'rgba(29, 155, 240, 0.15)',
-                                padding: '2px 6px',
-                                borderRadius: '4px',
-                            }}
-                        >
-                            {activeMarkets.length} active
-                        </span>
-                        <span style={{ color: '#71767b' }}>•</span>
-                        <span
-                            style={{
-                                fontSize: '11px',
-                                color: '#71767b',
-                            }}
-                        >
-                            Vol: {formatVolume(data.totalVolume)}
-                        </span>
+            <div style={styles.header}>
+                <div style={styles.headerBg}>
+                    {data.eventImage && (
+                        <img
+                            src={data.eventImage}
+                            alt=""
+                            style={styles.headerImage}
+                        />
+                    )}
+                </div>
+                <div style={styles.headerContent}>
+                    <div style={{ flex: 1, paddingRight: '40%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                        <div style={styles.title}>
+                            {data.title}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                            <span
+                                style={{
+                                    fontSize: '10px',
+                                    fontWeight: 600,
+                                    color: theme.colors.accent,
+                                    background: 'rgba(0, 217, 146, 0.1)',
+                                    padding: '2px 8px',
+                                    borderRadius: '10px',
+                                    border: '1px solid rgba(0, 217, 146, 0.2)',
+                                }}
+                            >
+                                {activeMarkets.length} active
+                            </span>
+                            <span style={styles.meta}>
+                                Vol: {formatVolume(data.totalVolume)}
+                            </span>
+                        </div>
                     </div>
                 </div>
-                <PolymarketLogo />
             </div>
 
             {/* Active Markets List */}
             <div
                 style={{
-                    maxHeight: '320px',
+                    maxHeight: '280px',
                     overflowY: 'auto',
-                    padding: '8px',
+                    padding: theme.spacing.sm,
+                    background: theme.colors.bgPrimary,
                 }}
             >
                 {activeMarkets.length > 0 ? (
@@ -539,17 +542,17 @@ function MultiMarketCard({ data, fullUrl }: { data: MultiMarketData; fullUrl: st
                                 justifyContent: 'space-between',
                                 padding: '10px 12px',
                                 marginBottom: '4px',
-                                background: 'rgba(255, 255, 255, 0.05)',
-                                borderRadius: '10px',
-                                border: '1px solid rgba(255, 255, 255, 0.05)',
+                                background: theme.colors.bgCard,
+                                borderRadius: theme.radius.md,
+                                border: `1px solid ${theme.colors.borderSubtle}`,
                             }}
                         >
                             <div style={{ flex: 1, minWidth: 0, marginRight: '12px' }}>
                                 <div
                                     style={{
-                                        fontSize: '13px',
+                                        fontSize: '12px',
                                         fontWeight: 500,
-                                        color: '#e7e9ea',
+                                        color: theme.colors.textPrimary,
                                         lineHeight: 1.3,
                                         display: '-webkit-box',
                                         WebkitLineClamp: 2,
@@ -568,27 +571,28 @@ function MultiMarketCard({ data, fullUrl }: { data: MultiMarketData; fullUrl: st
                                         flexDirection: 'column',
                                         alignItems: 'center',
                                         padding: '6px 10px',
-                                        background: 'rgba(34, 197, 94, 0.15)',
-                                        border: '1px solid rgba(34, 197, 94, 0.3)',
-                                        borderRadius: '8px',
-                                        minWidth: '52px',
+                                        background: theme.colors.accentGlow,
+                                        border: `1px solid ${theme.colors.accent}33`,
+                                        borderRadius: theme.radius.sm,
+                                        minWidth: '50px',
                                         cursor: 'pointer',
-                                        transition: 'all 0.15s ease',
+                                        transition: theme.transitions.fast,
+                                        fontFamily: theme.fonts.primary,
                                     }}
                                     onMouseEnter={e => {
-                                        e.currentTarget.style.background = 'rgba(34, 197, 94, 0.3)';
+                                        e.currentTarget.style.background = 'rgba(0, 217, 146, 0.3)';
                                         e.currentTarget.style.transform = 'scale(1.02)';
                                     }}
                                     onMouseLeave={e => {
-                                        e.currentTarget.style.background = 'rgba(34, 197, 94, 0.15)';
+                                        e.currentTarget.style.background = theme.colors.accentGlow;
                                         e.currentTarget.style.transform = 'scale(1)';
                                     }}
                                 >
                                     <span
                                         style={{
                                             fontSize: '9px',
-                                            fontWeight: 500,
-                                            color: '#22c55e',
+                                            fontWeight: 600,
+                                            color: theme.colors.accent,
                                             marginBottom: '2px',
                                         }}
                                     >
@@ -596,9 +600,10 @@ function MultiMarketCard({ data, fullUrl }: { data: MultiMarketData; fullUrl: st
                                     </span>
                                     <span
                                         style={{
-                                            fontSize: '15px',
+                                            fontSize: '14px',
                                             fontWeight: 700,
-                                            color: '#22c55e',
+                                            color: theme.colors.accent,
+                                            fontFamily: theme.fonts.mono,
                                         }}
                                     >
                                         {formatPriceAsPercent(market.yesPrice)}
@@ -611,27 +616,28 @@ function MultiMarketCard({ data, fullUrl }: { data: MultiMarketData; fullUrl: st
                                         flexDirection: 'column',
                                         alignItems: 'center',
                                         padding: '6px 10px',
-                                        background: 'rgba(239, 68, 68, 0.15)',
-                                        border: '1px solid rgba(239, 68, 68, 0.3)',
-                                        borderRadius: '8px',
-                                        minWidth: '52px',
+                                        background: 'rgba(255, 107, 107, 0.15)',
+                                        border: `1px solid ${theme.colors.accentSell}33`,
+                                        borderRadius: theme.radius.sm,
+                                        minWidth: '50px',
                                         cursor: 'pointer',
-                                        transition: 'all 0.15s ease',
+                                        transition: theme.transitions.fast,
+                                        fontFamily: theme.fonts.primary,
                                     }}
                                     onMouseEnter={e => {
-                                        e.currentTarget.style.background = 'rgba(239, 68, 68, 0.3)';
+                                        e.currentTarget.style.background = 'rgba(255, 107, 107, 0.3)';
                                         e.currentTarget.style.transform = 'scale(1.02)';
                                     }}
                                     onMouseLeave={e => {
-                                        e.currentTarget.style.background = 'rgba(239, 68, 68, 0.15)';
+                                        e.currentTarget.style.background = 'rgba(255, 107, 107, 0.15)';
                                         e.currentTarget.style.transform = 'scale(1)';
                                     }}
                                 >
                                     <span
                                         style={{
                                             fontSize: '9px',
-                                            fontWeight: 500,
-                                            color: '#ef4444',
+                                            fontWeight: 600,
+                                            color: theme.colors.accentSell,
                                             marginBottom: '2px',
                                         }}
                                     >
@@ -639,9 +645,10 @@ function MultiMarketCard({ data, fullUrl }: { data: MultiMarketData; fullUrl: st
                                     </span>
                                     <span
                                         style={{
-                                            fontSize: '15px',
+                                            fontSize: '14px',
                                             fontWeight: 700,
-                                            color: '#ef4444',
+                                            color: theme.colors.accentSell,
+                                            fontFamily: theme.fonts.mono,
                                         }}
                                     >
                                         {formatPriceAsPercent(market.noPrice)}
@@ -654,9 +661,9 @@ function MultiMarketCard({ data, fullUrl }: { data: MultiMarketData; fullUrl: st
                     <div
                         style={{
                             textAlign: 'center',
-                            padding: '16px',
-                            color: '#71767b',
-                            fontSize: '13px',
+                            padding: theme.spacing.lg,
+                            color: theme.colors.textMuted,
+                            fontSize: '12px',
                         }}
                     >
                         No active markets
@@ -674,13 +681,14 @@ function MultiMarketCard({ data, fullUrl }: { data: MultiMarketData; fullUrl: st
                                 alignItems: 'center',
                                 justifyContent: 'space-between',
                                 padding: '10px 12px',
-                                background: 'rgba(113, 118, 123, 0.1)',
-                                border: '1px solid rgba(113, 118, 123, 0.2)',
-                                borderRadius: '10px',
+                                background: theme.colors.bgTertiary,
+                                border: `1px solid ${theme.colors.borderSubtle}`,
+                                borderRadius: theme.radius.md,
                                 cursor: 'pointer',
-                                color: '#71767b',
-                                fontSize: '12px',
+                                color: theme.colors.textMuted,
+                                fontSize: '11px',
                                 fontWeight: 500,
+                                fontFamily: theme.fonts.primary,
                             }}
                         >
                             <span>
@@ -699,17 +707,17 @@ function MultiMarketCard({ data, fullUrl }: { data: MultiMarketData; fullUrl: st
                                             justifyContent: 'space-between',
                                             padding: '8px 12px',
                                             marginBottom: '4px',
-                                            background: 'rgba(113, 118, 123, 0.08)',
-                                            borderRadius: '8px',
-                                            border: '1px solid rgba(113, 118, 123, 0.1)',
+                                            background: theme.colors.bgTertiary,
+                                            borderRadius: theme.radius.sm,
+                                            border: `1px solid ${theme.colors.borderSubtle}`,
                                         }}
                                     >
                                         <div style={{ flex: 1, minWidth: 0, marginRight: '12px' }}>
                                             <div
                                                 style={{
-                                                    fontSize: '12px',
+                                                    fontSize: '11px',
                                                     fontWeight: 500,
-                                                    color: '#71767b',
+                                                    color: theme.colors.textMuted,
                                                     lineHeight: 1.3,
                                                     display: '-webkit-box',
                                                     WebkitLineClamp: 1,
@@ -724,11 +732,12 @@ function MultiMarketCard({ data, fullUrl }: { data: MultiMarketData; fullUrl: st
                                             <div
                                                 style={{
                                                     padding: '4px 8px',
-                                                    background: 'rgba(113, 118, 123, 0.15)',
-                                                    borderRadius: '6px',
-                                                    fontSize: '12px',
+                                                    background: theme.colors.bgTertiary,
+                                                    borderRadius: theme.radius.sm,
+                                                    fontSize: '11px',
                                                     fontWeight: 600,
-                                                    color: market.yesPrice > 0.5 ? '#22c55e' : '#71767b',
+                                                    fontFamily: theme.fonts.mono,
+                                                    color: market.yesPrice > 0.5 ? theme.colors.accent : theme.colors.textMuted,
                                                 }}
                                             >
                                                 {market.yesPrice > 0.5 ? 'YES ✓' : `YES ${formatPriceAsPercent(market.yesPrice)}`}
@@ -736,11 +745,12 @@ function MultiMarketCard({ data, fullUrl }: { data: MultiMarketData; fullUrl: st
                                             <div
                                                 style={{
                                                     padding: '4px 8px',
-                                                    background: 'rgba(113, 118, 123, 0.15)',
-                                                    borderRadius: '6px',
-                                                    fontSize: '12px',
+                                                    background: theme.colors.bgTertiary,
+                                                    borderRadius: theme.radius.sm,
+                                                    fontSize: '11px',
                                                     fontWeight: 600,
-                                                    color: market.noPrice > 0.5 ? '#ef4444' : '#71767b',
+                                                    fontFamily: theme.fonts.mono,
+                                                    color: market.noPrice > 0.5 ? theme.colors.accentSell : theme.colors.textMuted,
                                                 }}
                                             >
                                                 {market.noPrice > 0.5 ? 'NO ✓' : `NO ${formatPriceAsPercent(market.noPrice)}`}
@@ -756,20 +766,11 @@ function MultiMarketCard({ data, fullUrl }: { data: MultiMarketData; fullUrl: st
 
             {/* Footer - hide when trading panel is open */}
             {!orderPanel.isOpen && (
-                <div
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: '12px 16px',
-                        borderTop: '1px solid rgba(255, 255, 255, 0.1)',
-                        background: 'rgba(0, 0, 0, 0.2)',
-                    }}
-                >
+                <div style={styles.footer}>
                     <span
                         style={{
-                            fontSize: '11px',
-                            color: '#71767b',
+                            fontSize: '10px',
+                            color: '#8b949e',
                         }}
                     >
                         Powered by Polymarket
@@ -780,11 +781,12 @@ function MultiMarketCard({ data, fullUrl }: { data: MultiMarketData; fullUrl: st
                         rel="noopener noreferrer"
                         style={{
                             fontSize: '11px',
-                            color: '#1d9bf0',
+                            color: theme.colors.accent,
                             textDecoration: 'none',
+                            fontWeight: 500,
                         }}
                     >
-                        View all on Polymarket →
+                        View on Polymarket →
                     </a>
                 </div>
             )}
@@ -806,65 +808,67 @@ function LoadingCard() {
     return (
         <div
             style={{
-                background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
-                borderRadius: '16px',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                padding: '16px',
+                background: theme.colors.bgPrimary,
+                borderRadius: theme.radius.lg,
+                border: `1px solid ${theme.colors.borderSubtle}`,
+                padding: theme.spacing.lg,
                 width: '100%',
                 maxWidth: '500px',
+                fontFamily: theme.fonts.primary,
             }}
         >
             <div
                 style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '12px',
-                    marginBottom: '16px',
+                    gap: theme.spacing.md,
+                    marginBottom: theme.spacing.lg,
                 }}
             >
                 <div
                     style={{
-                        width: '48px',
-                        height: '48px',
-                        borderRadius: '8px',
-                        background: 'rgba(255, 255, 255, 0.1)',
+                        width: '44px',
+                        height: '44px',
+                        borderRadius: theme.radius.md,
+                        background: theme.colors.bgTertiary,
+                        animation: 'pulse 1.5s ease-in-out infinite',
                     }}
                 />
                 <div style={{ flex: 1 }}>
                     <div
                         style={{
-                            height: '14px',
+                            height: '12px',
                             width: '80%',
-                            borderRadius: '4px',
-                            background: 'rgba(255, 255, 255, 0.1)',
-                            marginBottom: '8px',
+                            borderRadius: theme.radius.xs,
+                            background: theme.colors.bgTertiary,
+                            marginBottom: theme.spacing.sm,
                         }}
                     />
                     <div
                         style={{
-                            height: '11px',
+                            height: '10px',
                             width: '50%',
-                            borderRadius: '4px',
-                            background: 'rgba(255, 255, 255, 0.1)',
+                            borderRadius: theme.radius.xs,
+                            background: theme.colors.bgTertiary,
                         }}
                     />
                 </div>
             </div>
-            <div style={{ display: 'flex', gap: '12px' }}>
+            <div style={{ display: 'flex', gap: theme.spacing.md }}>
                 <div
                     style={{
                         flex: 1,
-                        height: '80px',
-                        borderRadius: '12px',
-                        background: 'rgba(34, 197, 94, 0.1)',
+                        height: '70px',
+                        borderRadius: theme.radius.md,
+                        background: `${theme.colors.accent}15`,
                     }}
                 />
                 <div
                     style={{
                         flex: 1,
-                        height: '80px',
-                        borderRadius: '12px',
-                        background: 'rgba(239, 68, 68, 0.1)',
+                        height: '70px',
+                        borderRadius: theme.radius.md,
+                        background: `${theme.colors.accentSell}15`,
                     }}
                 />
             </div>
@@ -876,35 +880,38 @@ function ErrorCard({ message, url }: { message: string; url: string }) {
     return (
         <div
             style={{
-                background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
-                borderRadius: '16px',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                padding: '16px',
+                background: theme.colors.bgPrimary,
+                borderRadius: theme.radius.lg,
+                border: `1px solid ${theme.colors.borderSubtle}`,
+                padding: theme.spacing.lg,
                 width: '100%',
                 maxWidth: '500px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
+                fontFamily: theme.fonts.primary,
             }}
         >
             <div>
-                <div style={{ fontSize: '14px', color: '#e7e9ea', marginBottom: '4px' }}>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: theme.colors.textPrimary, marginBottom: '4px' }}>
                     Polymarket
                 </div>
-                <div style={{ fontSize: '12px', color: '#71767b' }}>{message}</div>
+                <div style={{ fontSize: '11px', color: theme.colors.textMuted }}>{message}</div>
             </div>
             <a
                 href={url}
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{
-                    padding: '8px 16px',
-                    background: 'rgba(29, 155, 240, 0.2)',
-                    border: '1px solid rgba(29, 155, 240, 0.3)',
-                    borderRadius: '8px',
-                    fontSize: '12px',
-                    color: '#1d9bf0',
+                    padding: '8px 14px',
+                    background: `${theme.colors.accent}20`,
+                    border: `1px solid ${theme.colors.accent}40`,
+                    borderRadius: theme.radius.md,
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    color: theme.colors.accent,
                     textDecoration: 'none',
+                    transition: theme.transitions.fast,
                 }}
             >
                 Open →
@@ -913,21 +920,18 @@ function ErrorCard({ message, url }: { message: string; url: string }) {
     );
 }
 
-function PolymarketLogo() {
+function InsiderLogo() {
     return (
-        <svg
-            width="24"
-            height="24"
-            viewBox="0 0 32 32"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
+        <span
+            style={{
+                fontSize: '10px',
+                fontWeight: 600,
+                color: theme.colors.textMuted,
+                fontFamily: theme.fonts.primary,
+                letterSpacing: '0.5px',
+            }}
         >
-            <circle cx="16" cy="16" r="16" fill="#00D395" />
-            <path
-                d="M10 10h12v12H10z"
-                fill="white"
-                fillOpacity="0.9"
-            />
-        </svg>
+            INSIDER
+        </span>
     );
 }

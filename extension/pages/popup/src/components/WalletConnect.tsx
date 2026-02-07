@@ -25,7 +25,7 @@ export function WalletConnect() {
         return (
             <div className="wallet-connect">
                 <div className="wallet-status">
-                    <span className="status-dot" style={{ background: '#71767b' }} />
+                    <span className="status-dot" />
                     <span>Loading...</span>
                 </div>
             </div>
@@ -41,26 +41,16 @@ export function WalletConnect() {
                     <span>Not connected</span>
                 </div>
 
-                <div style={{
-                    background: 'rgba(59, 130, 246, 0.1)',
-                    border: '1px solid rgba(59, 130, 246, 0.3)',
-                    borderRadius: '8px',
-                    padding: '12px',
-                    marginTop: '12px',
-                }}>
-                    <p style={{
-                        fontSize: '12px',
-                        color: '#e7e9ea',
-                        margin: 0,
-                        lineHeight: 1.5,
-                    }}>
-                        🐦 To start trading, go to <strong>Twitter/X</strong> and find a tweet
+                <div className="wallet-guide-card">
+                    <p>
+                        <span className="emoji">🐦</span>
+                        To start trading, go to <strong>Twitter/X</strong> and find a tweet
                         with a Polymarket link. Click <strong>YES</strong> or <strong>NO</strong> on
                         the trading card to connect your wallet.
                     </p>
                 </div>
 
-                <p className="wallet-hint" style={{ marginTop: '12px', fontSize: '11px', color: '#71767b' }}>
+                <p className="wallet-hint">
                     Your wallet will connect directly through MetaMask on Twitter.
                 </p>
             </div>
@@ -75,51 +65,22 @@ export function WalletConnect() {
                 <span>Ready to trade</span>
             </div>
 
-            <div className="wallet-info" style={{ marginTop: '12px' }}>
-                <div className="info-row" style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    marginBottom: '6px',
-                }}>
-                    <span className="label" style={{ fontSize: '11px', color: '#71767b' }}>Wallet:</span>
-                    <span className="value" style={{ fontSize: '11px', color: '#e7e9ea', fontFamily: 'monospace' }}>
-                        {truncatedAddress}
-                    </span>
+            <div className="wallet-info">
+                <div className="info-row">
+                    <span className="label">Wallet</span>
+                    <span className="value">{truncatedAddress}</span>
                 </div>
-                <div className="info-row" style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                }}>
-                    <span className="label" style={{ fontSize: '11px', color: '#71767b' }}>Safe:</span>
-                    <span className="value" style={{ fontSize: '11px', color: '#e7e9ea', fontFamily: 'monospace' }}>
-                        {truncatedSafeAddress}
-                    </span>
+                <div className="info-row">
+                    <span className="label">Safe</span>
+                    <span className="value">{truncatedSafeAddress}</span>
                 </div>
             </div>
 
-            <p className="wallet-hint" style={{
-                marginTop: '12px',
-                fontSize: '11px',
-                color: '#22c55e',
-            }}>
+            <p className="wallet-hint success">
                 ✓ You can trade directly from Polymarket links on Twitter!
             </p>
 
-            <button
-                className="disconnect-button"
-                onClick={clearSession}
-                style={{
-                    marginTop: '12px',
-                    width: '100%',
-                    padding: '8px',
-                    background: 'transparent',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    borderRadius: '6px',
-                    color: '#71767b',
-                    fontSize: '12px',
-                    cursor: 'pointer',
-                }}
-            >
+            <button className="disconnect-button" onClick={clearSession}>
                 Disconnect
             </button>
         </div>

@@ -1,7 +1,7 @@
 {
-  "name": "chrome-extension-boilerplate-react-vite",
+  "name": "insiders-extension",
   "version": "0.5.0",
-  "description": "chrome extension boilerplate",
+  "description": "Trade Polymarket positions from Twitter/X",
   "license": "MIT",
   "private": true,
   "sideEffects": false,

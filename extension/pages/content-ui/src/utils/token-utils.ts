@@ -105,9 +105,22 @@ export async function checkAllowance(
 
 /**
  * Build approval transaction data
+ * @param spender The address to approve
+ * @param amount The amount in USDC (e.g., 10.5), or undefined for unlimited
  */
-export function buildApprovalData(spender: string, amount: string = MAX_UINT256): string {
-  return APPROVE_SELECTOR + encodeAddress(spender) + encodeUint256(amount);
+export function buildApprovalData(spender: string, amount?: number): string {
+  let amountHex: string;
+
+  if (amount === undefined) {
+    // Unlimited approval
+    amountHex = MAX_UINT256;
+  } else {
+    // Exact amount approval - convert to raw units (6 decimals for USDC)
+    const rawAmount = toRawAmount(amount);
+    amountHex = '0x' + rawAmount.toString(16);
+  }
+
+  return APPROVE_SELECTOR + encodeAddress(spender) + encodeUint256(amountHex);
 }
 
 /**

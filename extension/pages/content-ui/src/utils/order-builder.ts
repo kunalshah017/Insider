@@ -55,15 +55,18 @@ const ROUNDING_CONFIG: Record<string, { price: number; size: number; amount: num
 
 /**
  * Generate a random salt for the order
+ * Uses a smaller range that fits in JavaScript's safe integer range
+ * MAX_SAFE_INTEGER = 2^53 - 1 = 9007199254740991
  */
 function generateSalt(): string {
-  const randomBytes = new Uint8Array(32);
+  // Generate a random number within safe integer range
+  const randomBytes = new Uint8Array(6); // 48 bits, fits in 53-bit safe integer
   crypto.getRandomValues(randomBytes);
-  let hex = '';
+  let value = 0;
   for (let i = 0; i < randomBytes.length; i++) {
-    hex += randomBytes[i].toString(16).padStart(2, '0');
+    value = value * 256 + randomBytes[i];
   }
-  return BigInt('0x' + hex).toString();
+  return value.toString();
 }
 
 /**
@@ -201,6 +204,9 @@ export function buildOrderTypedData(order: OrderData, negRisk: boolean = false) 
  * Convert signed order to the format expected by Polymarket CLOB API
  */
 export function formatOrderForApi(signedOrder: SignedOrder, owner: string, orderType: 'GTC' | 'GTD' | 'FOK' = 'GTC') {
+  // Side enum: BUY = 0, SELL = 1 (API expects numeric value)
+  const sideValue = signedOrder.side === 'BUY' ? 0 : 1;
+
   return {
     order: {
       salt: parseInt(signedOrder.salt),
@@ -213,7 +219,7 @@ export function formatOrderForApi(signedOrder: SignedOrder, owner: string, order
       expiration: signedOrder.expiration,
       nonce: signedOrder.nonce,
       feeRateBps: signedOrder.feeRateBps,
-      side: signedOrder.side,
+      side: sideValue,
       signatureType: signedOrder.signatureType,
       signature: signedOrder.signature,
     },
