@@ -23,6 +23,9 @@
     "postinstall": "pnpm ready"
   },
   "dependencies": {
+    "@polymarket/builder-relayer-client": "^0.0.8",
+    "@polymarket/builder-signing-sdk": "^0.0.8",
+    "@polymarket/clob-client": "^5.2.1",
     "react-error-boundary": "^6.0.0"
   },
   "devDependencies": {

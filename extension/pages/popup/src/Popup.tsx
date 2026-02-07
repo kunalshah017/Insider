@@ -3,6 +3,7 @@ import { t } from '@extension/i18n';
 import { PROJECT_URL_OBJECT, useStorage, withErrorBoundary, withSuspense } from '@extension/shared';
 import { exampleThemeStorage } from '@extension/storage';
 import { cn, ErrorDisplay, LoadingSpinner, ToggleButton } from '@extension/ui';
+import { WalletConnect } from './components';
 
 const notificationOptions = {
   type: 'basic',
@@ -40,20 +41,10 @@ const Popup = () => {
   return (
     <div className={cn('App', isLight ? 'bg-slate-50' : 'bg-gray-800')}>
       <header className={cn('App-header', isLight ? 'text-gray-900' : 'text-gray-100')}>
-        <button onClick={goGithubSite}>
-          <img src={chrome.runtime.getURL(logo)} className="App-logo" alt="logo" />
-        </button>
-        <p>
-          Edit <code>pages/popup/src/Popup.tsx</code>
-        </p>
-        <button
-          className={cn(
-            'mt-4 rounded px-4 py-1 font-bold shadow hover:scale-105',
-            isLight ? 'bg-blue-200 text-black' : 'bg-gray-700 text-white',
-          )}
-          onClick={injectContentScript}>
-          {t('injectButton')}
-        </button>
+        <div style={{ flex: 1, width: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          <h1 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '0.5rem' }}>Polymarket Insider</h1>
+          <WalletConnect />
+        </div>
         <ToggleButton>{t('toggleTheme')}</ToggleButton>
       </header>
     </div>

@@ -28,3 +28,145 @@ code {
   border-radius: 0.25rem;
   padding: 0.2rem 0.5rem;
 }
+
+/* Wallet Connect Styles */
+.wallet-connect {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  text-align: left;
+}
+
+.wallet-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.status-dot.disconnected {
+  background-color: #ef4444;
+}
+
+.status-dot.connected {
+  background-color: #f59e0b;
+}
+
+.status-dot.ready {
+  background-color: #22c55e;
+}
+
+.connect-button,
+.init-button {
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.connect-button:hover,
+.init-button:hover {
+  opacity: 0.9;
+}
+
+.connect-button:disabled,
+.init-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.disconnect-button {
+  background: transparent;
+  color: #6b7280;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.disconnect-button:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.wallet-hint {
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin: 0;
+}
+
+.session-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: #f0f9ff;
+  border-radius: 8px;
+}
+
+.progress-step {
+  font-size: 0.8rem;
+  color: #0369a1;
+}
+
+.progress-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #bae6fd;
+  border-top-color: #0369a1;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.session-error {
+  padding: 0.75rem;
+  background: #fef2f2;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  color: #dc2626;
+}
+
+.wallet-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem;
+  background: #f9fafb;
+  border-radius: 8px;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+}
+
+.info-row .label {
+  color: #6b7280;
+}
+
+.info-row .value {
+  font-family: monospace;
+  color: #111827;
+}

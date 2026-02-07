@@ -23,7 +23,11 @@
     "@extension/shared": "workspace:*",
     "@extension/storage": "workspace:*",
     "@extension/i18n": "workspace:*",
-    "@extension/ui": "workspace:*"
+    "@extension/ui": "workspace:*",
+    "@polymarket/builder-relayer-client": "^0.0.8",
+    "@tanstack/react-query": "^5.45.0",
+    "viem": "^2.31.0",
+    "wagmi": "^2.14.16"
   },
   "devDependencies": {
     "@extension/tailwindcss-config": "workspace:*",

@@ -38,8 +38,12 @@
     "postinstall": "pnpm copy-env"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.90.20",
+    "ethers": "^5.8.0",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "viem": "^2.45.1",
+    "wagmi": "^3.4.2"
   },
   "devDependencies": {
     "@eslint/compat": "^1.2.9",

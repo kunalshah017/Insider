@@ -8,6 +8,7 @@ import {
     type ParsedMarket,
     type PolymarketEvent,
 } from '@extension/shared';
+import { InlineTradingPanel } from './InlineTradingPanel';
 
 interface TradingCardProps {
     slug: string;
@@ -149,6 +150,21 @@ function SingleMarketCard({ data, fullUrl }: { data: SingleMarketData; fullUrl: 
     const yesPrice = market.outcomePrices[0] ?? 0.5;
     const noPrice = market.outcomePrices[1] ?? 0.5;
 
+    // Order panel state
+    const [orderPanel, setOrderPanel] = useState<{
+        isOpen: boolean;
+        outcome: 'YES' | 'NO';
+        price: number;
+    }>({ isOpen: false, outcome: 'YES', price: 0.5 });
+
+    const openOrderPanel = (outcome: 'YES' | 'NO', price: number) => {
+        setOrderPanel({ isOpen: true, outcome, price });
+    };
+
+    const closeOrderPanel = () => {
+        setOrderPanel({ ...orderPanel, isOpen: false });
+    };
+
     return (
         <div
             style={{
@@ -237,6 +253,7 @@ function SingleMarketCard({ data, fullUrl }: { data: SingleMarketData; fullUrl: 
             >
                 {/* YES Button */}
                 <button
+                    onClick={() => openOrderPanel('YES', yesPrice)}
                     style={{
                         flex: 1,
                         display: 'flex',
@@ -291,6 +308,7 @@ function SingleMarketCard({ data, fullUrl }: { data: SingleMarketData; fullUrl: 
 
                 {/* NO Button */}
                 <button
+                    onClick={() => openOrderPanel('NO', noPrice)}
                     style={{
                         flex: 1,
                         display: 'flex',
@@ -344,38 +362,50 @@ function SingleMarketCard({ data, fullUrl }: { data: SingleMarketData; fullUrl: 
                 </button>
             </div>
 
-            {/* Footer */}
-            <div
-                style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '12px 16px',
-                    borderTop: '1px solid rgba(255, 255, 255, 0.1)',
-                    background: 'rgba(0, 0, 0, 0.2)',
-                }}
-            >
-                <span
+            {/* Footer - hide when trading panel is open */}
+            {!orderPanel.isOpen && (
+                <div
                     style={{
-                        fontSize: '11px',
-                        color: '#71767b',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '12px 16px',
+                        borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+                        background: 'rgba(0, 0, 0, 0.2)',
                     }}
                 >
-                    Powered by Polymarket
-                </span>
-                <a
-                    href={fullUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                        fontSize: '11px',
-                        color: '#1d9bf0',
-                        textDecoration: 'none',
-                    }}
-                >
-                    View on Polymarket →
-                </a>
-            </div>
+                    <span
+                        style={{
+                            fontSize: '11px',
+                            color: '#71767b',
+                        }}
+                    >
+                        Powered by Polymarket
+                    </span>
+                    <a
+                        href={fullUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                            fontSize: '11px',
+                            color: '#1d9bf0',
+                            textDecoration: 'none',
+                        }}
+                    >
+                        View on Polymarket →
+                    </a>
+                </div>
+            )}
+
+            {/* Inline Trading Panel */}
+            <InlineTradingPanel
+                isOpen={orderPanel.isOpen}
+                onClose={closeOrderPanel}
+                marketTitle={title}
+                outcome={orderPanel.outcome}
+                tokenId={orderPanel.outcome === 'YES' ? market.clobTokenIds[0] : market.clobTokenIds[1]}
+                price={orderPanel.price}
+            />
         </div>
     );
 }
@@ -385,14 +415,29 @@ function MultiMarketCard({ data, fullUrl }: { data: MultiMarketData; fullUrl: st
     const activeMarkets = data.markets.filter(m => !m.closed);
     const closedMarkets = data.markets.filter(m => m.closed);
 
-    const handleYesClick = (marketId: string) => {
-        console.log('[Insider] YES clicked for market:', marketId);
-        // TODO: Implement order placement
+    // Order panel state for multi-market
+    const [orderPanel, setOrderPanel] = useState<{
+        isOpen: boolean;
+        outcome: 'YES' | 'NO';
+        price: number;
+        marketId: string;
+        marketQuestion: string;
+    }>({ isOpen: false, outcome: 'YES', price: 0.5, marketId: '', marketQuestion: '' });
+
+    const openOrderPanel = (marketId: string, marketQuestion: string, outcome: 'YES' | 'NO', price: number) => {
+        setOrderPanel({ isOpen: true, outcome, price, marketId, marketQuestion });
     };
 
-    const handleNoClick = (marketId: string) => {
-        console.log('[Insider] NO clicked for market:', marketId);
-        // TODO: Implement order placement
+    const closeOrderPanel = () => {
+        setOrderPanel({ ...orderPanel, isOpen: false });
+    };
+
+    const handleYesClick = (marketId: string, marketQuestion: string, yesPrice: number) => {
+        openOrderPanel(marketId, marketQuestion, 'YES', yesPrice);
+    };
+
+    const handleNoClick = (marketId: string, marketQuestion: string, noPrice: number) => {
+        openOrderPanel(marketId, marketQuestion, 'NO', noPrice);
     };
 
     return (
@@ -517,7 +562,7 @@ function MultiMarketCard({ data, fullUrl }: { data: MultiMarketData; fullUrl: st
                             </div>
                             <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
                                 <button
-                                    onClick={() => handleYesClick(market.id)}
+                                    onClick={() => handleYesClick(market.id, market.question, market.yesPrice)}
                                     style={{
                                         display: 'flex',
                                         flexDirection: 'column',
@@ -560,7 +605,7 @@ function MultiMarketCard({ data, fullUrl }: { data: MultiMarketData; fullUrl: st
                                     </span>
                                 </button>
                                 <button
-                                    onClick={() => handleNoClick(market.id)}
+                                    onClick={() => handleNoClick(market.id, market.question, market.noPrice)}
                                     style={{
                                         display: 'flex',
                                         flexDirection: 'column',
@@ -709,38 +754,50 @@ function MultiMarketCard({ data, fullUrl }: { data: MultiMarketData; fullUrl: st
                 )}
             </div>
 
-            {/* Footer */}
-            <div
-                style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '12px 16px',
-                    borderTop: '1px solid rgba(255, 255, 255, 0.1)',
-                    background: 'rgba(0, 0, 0, 0.2)',
-                }}
-            >
-                <span
+            {/* Footer - hide when trading panel is open */}
+            {!orderPanel.isOpen && (
+                <div
                     style={{
-                        fontSize: '11px',
-                        color: '#71767b',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '12px 16px',
+                        borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+                        background: 'rgba(0, 0, 0, 0.2)',
                     }}
                 >
-                    Powered by Polymarket
-                </span>
-                <a
-                    href={fullUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                        fontSize: '11px',
-                        color: '#1d9bf0',
-                        textDecoration: 'none',
-                    }}
-                >
-                    View all on Polymarket →
-                </a>
-            </div>
+                    <span
+                        style={{
+                            fontSize: '11px',
+                            color: '#71767b',
+                        }}
+                    >
+                        Powered by Polymarket
+                    </span>
+                    <a
+                        href={fullUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                            fontSize: '11px',
+                            color: '#1d9bf0',
+                            textDecoration: 'none',
+                        }}
+                    >
+                        View all on Polymarket →
+                    </a>
+                </div>
+            )}
+
+            {/* Inline Trading Panel for multi-market */}
+            <InlineTradingPanel
+                isOpen={orderPanel.isOpen}
+                onClose={closeOrderPanel}
+                marketTitle={orderPanel.marketQuestion || data.title}
+                outcome={orderPanel.outcome}
+                tokenId={orderPanel.marketId}
+                price={orderPanel.price}
+            />
         </div>
     );
 }
