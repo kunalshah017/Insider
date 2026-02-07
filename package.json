@@ -1,0 +1,22 @@
+{
+  "name": "insider",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Polymarket trading extension for Twitter/X",
+  "scripts": {
+    "dev:extension": "cd extension && pnpm dev",
+    "dev:server": "cd server && pnpm dev",
+    "build:extension": "cd extension && pnpm build",
+    "build:server": "cd server && pnpm build",
+    "build": "pnpm build:extension && pnpm build:server",
+    "install:all": "cd extension && pnpm install && cd ../server && pnpm install"
+  },
+  "keywords": [
+    "polymarket",
+    "twitter",
+    "chrome-extension",
+    "prediction-markets"
+  ],
+  "author": "",
+  "license": "MIT"
+}
