@@ -1,0 +1,97 @@
+name: Build Extension & Create Release
+
+on:
+    push:
+        branches: [main]
+        paths:
+            - "extension/**"
+            - ".github/workflows/build-extension.yml"
+    workflow_dispatch: # Allow manual trigger
+
+permissions:
+    contents: write
+
+jobs:
+    build:
+        runs-on: ubuntu-latest
+        defaults:
+            run:
+                working-directory: ./extension
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Setup pnpm
+              uses: pnpm/action-setup@v4
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version-file: "extension/.nvmrc"
+                  cache: "pnpm"
+                  cache-dependency-path: "extension/pnpm-lock.yaml"
+
+            - name: Create .env file
+              run: |
+                  cat > .env << EOF
+                  CEB_SERVER_URL=${{ secrets.CEB_SERVER_URL || 'https://insider-api.azurewebsites.net' }}
+                  CEB_CLOB_API_URL=https://clob.polymarket.com
+                  CEB_GAMMA_API_URL=https://gamma-api.polymarket.com
+                  CEB_DATA_API_URL=https://data-api.polymarket.com
+                  EOF
+
+            - name: Install dependencies
+              run: pnpm install --frozen-lockfile --prefer-offline
+
+            - name: Build extension
+              run: pnpm build
+
+            - name: Get version from package.json
+              id: get_version
+              run: echo "VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+
+            - name: Create zip file
+              run: |
+                  cd dist
+                  zip -r ../insider-extension-v${{ steps.get_version.outputs.VERSION }}.zip .
+
+            - name: Upload build artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: insider-extension-v${{ steps.get_version.outputs.VERSION }}
+                  path: extension/dist/*
+                  retention-days: 30
+
+            - name: Create or update release
+              uses: softprops/action-gh-release@v2
+              with:
+                  tag_name: v${{ steps.get_version.outputs.VERSION }}
+                  name: Insider Extension v${{ steps.get_version.outputs.VERSION }}
+                  body: |
+                      ## 🚀 Insider Extension v${{ steps.get_version.outputs.VERSION }}
+
+                      ### Installation Instructions
+
+                      1. Download `insider-extension-v${{ steps.get_version.outputs.VERSION }}.zip` below
+                      2. Extract the zip file to a folder
+                      3. Open Chrome and go to `chrome://extensions`
+                      4. Enable "Developer mode" (toggle in top right)
+                      5. Click "Load unpacked"
+                      6. Select the extracted folder
+
+                      ### What's Included
+                      - Trade Polymarket directly from Twitter/X
+                      - Real-time price updates via WebSocket
+                      - Uniswap v4 token swaps to USDC.e
+                      - Portfolio management popup
+                      - Position redemption for resolved markets
+
+                      ---
+                      *Built from commit: ${{ github.sha }}*
+                  files: extension/insider-extension-v${{ steps.get_version.outputs.VERSION }}.zip
+                  draft: false
+                  prerelease: false
+                  make_latest: true
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
