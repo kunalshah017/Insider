@@ -364,6 +364,16 @@ body {
   margin-bottom: var(--space-md);
 }
 
+.content-success {
+  padding: var(--space-sm) var(--space-md);
+  background: rgba(0, 200, 83, 0.1);
+  border: 1px solid rgba(0, 200, 83, 0.2);
+  border-radius: var(--radius-sm);
+  color: #00c853;
+  font-size: 12px;
+  margin-bottom: var(--space-md);
+}
+
 .content-loading {
   display: flex;
   flex-direction: column;
@@ -926,6 +936,20 @@ body,
 .sell-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* Redeem button - green/success style for winning positions */
+.sell-btn.redeem-btn {
+  background: rgba(0, 217, 146, 0.15);
+  border: 1px solid rgba(0, 217, 146, 0.3);
+  color: var(--accent);
+}
+
+.sell-btn.redeem-btn:hover {
+  background: rgba(0, 217, 146, 0.25);
+  border-color: rgba(0, 217, 146, 0.5);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 217, 146, 0.2);
 }
 
 .holding-actions .end-date {

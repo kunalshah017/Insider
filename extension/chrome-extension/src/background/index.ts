@@ -127,6 +127,11 @@ type MessageType =
       price: string;
       negRisk?: boolean;
     }
+  | {
+      type: 'REDEEM_POSITION';
+      conditionId: string;
+      negRisk?: boolean;
+    }
   | { type: 'RESOLVE_TCO_LINK'; url: string };
 
 /**
@@ -766,6 +771,84 @@ chrome.runtime.onMessage.addListener((message: MessageType, _sender, sendRespons
             }
           } catch (error) {
             console.error('[Insider Background] Error placing sell order:', error);
+            sendResponse({ error: String(error) });
+          }
+          break;
+        }
+
+        case 'REDEEM_POSITION': {
+          // Redeem winning tokens via CTF contract
+          try {
+            const { conditionId, negRisk = false } = message as {
+              type: 'REDEEM_POSITION';
+              conditionId: string;
+              negRisk?: boolean;
+            };
+
+            if (!conditionId) {
+              sendResponse({ error: 'Missing required parameter: conditionId' });
+              return;
+            }
+
+            const sessionResult = await chrome.storage.local.get(SESSION_STORAGE_KEY);
+            const session = sessionResult[SESSION_STORAGE_KEY] as TradingSession;
+
+            if (!session) {
+              sendResponse({ error: 'No trading session. Please connect wallet on Twitter first.' });
+              return;
+            }
+
+            // Support both old (walletAddress) and new (eoaAddress) session formats
+            const walletAddress = session.eoaAddress || (session as any).walletAddress;
+            if (!walletAddress) {
+              sendResponse({ error: 'No wallet address in session' });
+              return;
+            }
+
+            console.log('[Insider Background] Redeem position requested, routing to content script...');
+
+            // Find an active tab to route the redeem request
+            const tabs = await chrome.tabs.query({ url: ['*://*.twitter.com/*', '*://*.x.com/*'] });
+
+            if (tabs.length === 0) {
+              sendResponse({
+                error: 'Please open Twitter/X in a tab to redeem. MetaMask transaction requires an active web page.',
+              });
+              return;
+            }
+
+            const activeTab = tabs[0];
+            if (!activeTab.id) {
+              sendResponse({ error: 'No valid tab found for redemption' });
+              return;
+            }
+
+            // Send redeem request to content script
+            console.log('[Insider Background] Sending redeem request to tab:', activeTab.id);
+
+            try {
+              const redeemResult = await chrome.tabs.sendMessage(activeTab.id, {
+                type: 'SIGN_REDEEM_POSITION',
+                conditionId,
+                negRisk,
+                walletAddress,
+              });
+
+              if (redeemResult.error) {
+                sendResponse({ error: redeemResult.error });
+                return;
+              }
+
+              console.log('[Insider Background] Redeem transaction completed:', redeemResult);
+              sendResponse({ data: redeemResult.data });
+            } catch (tabError) {
+              console.error('[Insider Background] Error communicating with content script:', tabError);
+              sendResponse({
+                error: 'Could not connect to Twitter page. Please refresh Twitter and try again.',
+              });
+            }
+          } catch (error) {
+            console.error('[Insider Background] Error redeeming position:', error);
             sendResponse({ error: String(error) });
           }
           break;

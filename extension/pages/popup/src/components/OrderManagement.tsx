@@ -79,6 +79,7 @@ interface Position {
     outcome?: string;
     redeemable?: boolean;
     resolved?: boolean;
+    negativeRisk?: boolean;
     icon?: string;
     slug?: string;
     eventSlug?: string;
@@ -123,6 +124,11 @@ export function OrderManagement({ activeTab }: OrderManagementProps) {
     const [isSelling, setIsSelling] = useState(false);
     const [sellError, setSellError] = useState<string | null>(null);
     const [sellSuccess, setSellSuccess] = useState<string | null>(null);
+
+    // Redeem state
+    const [redeemingId, setRedeemingId] = useState<string | null>(null);
+    const [redeemError, setRedeemError] = useState<string | null>(null);
+    const [redeemSuccess, setRedeemSuccess] = useState<string | null>(null);
 
     // Fetch user wallet address on mount
     useEffect(() => {
@@ -257,6 +263,40 @@ export function OrderManagement({ activeTab }: OrderManagementProps) {
         setSellOrderType('market');
         setSellError(null);
         setSellSuccess(null);
+    };
+
+    const handleRedeem = async (position: Position) => {
+        if (!position.conditionId) {
+            setRedeemError('Missing condition ID for redemption');
+            return;
+        }
+
+        setRedeemingId(position.conditionId);
+        setRedeemError(null);
+        setRedeemSuccess(null);
+
+        try {
+            const response: ApiResponse = await chrome.runtime.sendMessage({
+                type: 'REDEEM_POSITION',
+                conditionId: position.conditionId,
+                negRisk: position.negativeRisk || false,
+            });
+
+            if (response.error) {
+                setRedeemError(response.error);
+            } else {
+                setRedeemSuccess('Redemption transaction submitted! Check your wallet for confirmation.');
+                // Refresh positions after a delay
+                setTimeout(() => {
+                    fetchAll();
+                    setRedeemSuccess(null);
+                }, 5000);
+            }
+        } catch (err) {
+            setRedeemError(String(err));
+        } finally {
+            setRedeemingId(null);
+        }
     };
 
     const handleSellSubmit = async () => {
@@ -409,6 +449,8 @@ export function OrderManagement({ activeTab }: OrderManagementProps) {
                 </div>
 
                 {error && <div className="content-error">{error}</div>}
+                {redeemError && <div className="content-error">{redeemError}</div>}
+                {redeemSuccess && <div className="content-success">{redeemSuccess}</div>}
 
                 {positions.length === 0 ? (
                     <div className="empty-state">
@@ -486,13 +528,22 @@ export function OrderManagement({ activeTab }: OrderManagementProps) {
                                     </div>
 
                                     <div className="holding-actions">
-                                        <button
-                                            className="sell-btn"
-                                            onClick={() => openSellModal(position)}
-                                            disabled={position.redeemable}
-                                        >
-                                            {position.redeemable ? 'Redeem' : 'Sell'}
-                                        </button>
+                                        {position.redeemable ? (
+                                            <button
+                                                className="sell-btn redeem-btn"
+                                                onClick={() => handleRedeem(position)}
+                                                disabled={redeemingId === position.conditionId}
+                                            >
+                                                {redeemingId === position.conditionId ? 'Redeeming...' : 'Redeem'}
+                                            </button>
+                                        ) : (
+                                            <button
+                                                className="sell-btn"
+                                                onClick={() => openSellModal(position)}
+                                            >
+                                                Sell
+                                            </button>
+                                        )}
                                         {position.endDate && (
                                             <span className="end-date">Ends: {new Date(position.endDate).toLocaleDateString()}</span>
                                         )}

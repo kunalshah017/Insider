@@ -16,10 +16,13 @@ import { safeSendMessage, isExtensionContextValid } from '../../utils/chrome-mes
 const CTF_CONTRACT_ADDRESS = '0x4D97DCd97eC945f40cF65F87097ACe5EA0476045';
 const CTF_EXCHANGE_ADDRESS = '0x4bFb41d5B3570DeFd03C39a9A4D8dE6Bd8B8982E';
 const NEG_RISK_CTF_EXCHANGE_ADDRESS = '0xC5d563A36AE78145C45a50134d48A1215220f80a';
+const USDC_E_ADDRESS = '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174';
 
 // ERC-1155 function selectors
 const IS_APPROVED_FOR_ALL_SELECTOR = '0xe985e9c5'; // isApprovedForAll(address,address)
 const SET_APPROVAL_FOR_ALL_SELECTOR = '0xa22cb465'; // setApprovalForAll(address,bool)
+// CTF redeem function selector - keccak256("redeemPositions(address,bytes32,bytes32,uint256[])")[0:4]
+const REDEEM_POSITIONS_SELECTOR = '0x54ad71c2'; // redeemPositions(address,bytes32,bytes32,uint256[])
 
 /**
  * Encode address for contract call (pad to 32 bytes)
@@ -83,6 +86,82 @@ async function requestCTFApproval(owner: string, negRisk: boolean): Promise<bool
     } catch (error) {
         console.error('[Insider] Error requesting CTF approval:', error);
         return false;
+    }
+}
+
+/**
+ * Encode bytes32 for contract call (conditionId format)
+ */
+function encodeBytes32(value: string): string {
+    // Remove 0x prefix and ensure 64 chars (32 bytes)
+    return value.replace('0x', '').padStart(64, '0');
+}
+
+/**
+ * Encode uint256 array for contract call
+ * For redeemPositions, indexSets = [1, 2] to redeem both YES (1) and NO (2)
+ */
+function encodeIndexSetsArray(): string {
+    // ABI encoding for dynamic array:
+    // - offset to start of array data (0x80 = 128, which points past the 4 fixed params)
+    // - length of array (2)
+    // - array elements (1, 2)
+    const offset = '0000000000000000000000000000000000000000000000000000000000000080'; // offset to array data
+    const length = '0000000000000000000000000000000000000000000000000000000000000002'; // array length = 2
+    const elem1 = '0000000000000000000000000000000000000000000000000000000000000001'; // value 1 (YES)
+    const elem2 = '0000000000000000000000000000000000000000000000000000000000000002'; // value 2 (NO)
+    return offset + length + elem1 + elem2;
+}
+
+/**
+ * Handle redeem position requests from the popup (via background script)
+ */
+async function handleRedeemPosition(
+    conditionId: string,
+    negRisk: boolean,
+    walletAddress: string
+): Promise<{ data?: any; error?: string }> {
+    try {
+        console.log('[Insider] Redeeming position for conditionId:', conditionId);
+
+        // For redeeming, we don't need exchange approval, just call CTF directly
+        // The CTF contract transfers USDCe to the user for winning positions
+
+        // Build the redeemPositions call data
+        // redeemPositions(address collateralToken, bytes32 parentCollectionId, bytes32 conditionId, uint256[] indexSets)
+        const parentCollectionId = '0'.repeat(64); // HashZero for Polymarket
+        
+        // For dynamic array, we need: fixed params + array offset + array data
+        // Fixed params: collateralToken, parentCollectionId, conditionId
+        // Then offset pointing to array data, then array length + elements
+        const data = REDEEM_POSITIONS_SELECTOR +
+            encodeAddress(USDC_E_ADDRESS) +           // collateralToken (USDCe)
+            parentCollectionId +                       // parentCollectionId (HashZero)
+            encodeBytes32(conditionId) +              // conditionId
+            encodeIndexSetsArray();                   // indexSets [1, 2]
+
+        console.log('[Insider] Redeem call data:', data);
+
+        // Send the transaction
+        const result = await ethereumBridge.sendTransaction({
+            from: walletAddress,
+            to: CTF_CONTRACT_ADDRESS,
+            data: '0x' + data.replace(/^0x/, ''),
+            value: '0x0',
+        });
+
+        console.log('[Insider] Redeem transaction sent:', result.hash);
+
+        return {
+            data: {
+                transactionHash: result.hash,
+                message: 'Redemption transaction submitted successfully!',
+            },
+        };
+    } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to redeem position';
+        console.error('[Insider] Redeem position error:', err);
+        return { error: errorMessage };
     }
 }
 
@@ -651,6 +730,15 @@ export default function App() {
                     message.negRisk,
                     message.walletAddress,
                     message.session
+                ).then(sendResponse);
+                return true; // Keep channel open for async response
+            }
+            if (message.type === 'SIGN_REDEEM_POSITION') {
+                console.log('[Insider] Received redeem position request from popup');
+                handleRedeemPosition(
+                    message.conditionId,
+                    message.negRisk,
+                    message.walletAddress
                 ).then(sendResponse);
                 return true; // Keep channel open for async response
             }
