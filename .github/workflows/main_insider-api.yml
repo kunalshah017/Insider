@@ -8,8 +8,8 @@ on:
     branches:
       - main
     paths:
-      - 'server/**'
-      - '.github/workflows/main_insider-api.yml'
+      - "server/**"
+      - ".github/workflows/main_insider-api.yml"
   workflow_dispatch:
 
 jobs:
@@ -24,7 +24,7 @@ jobs:
       - name: Set up Node.js version
         uses: actions/setup-node@v3
         with:
-          node-version: '20.x'
+          node-version: "20.x"
 
       - name: Install dependencies and build
         working-directory: ./server
@@ -32,39 +32,39 @@ jobs:
           npm install
           npm run build
 
+      - name: Prepare deployment package
+        working-directory: ./server
+        run: |
+          mkdir -p deploy
+          cp -r dist deploy/
+          cp package.json deploy/
+          cp package-lock.json deploy/ 2>/dev/null || true
+
+      - name: Install production dependencies in deploy folder
+        working-directory: ./server/deploy
+        run: npm install --omit=dev
+
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
           name: node-app
-          path: |
-            server/dist
-            server/package.json
-            server/package-lock.json
+          path: server/deploy
 
   deploy:
     runs-on: ubuntu-latest
     needs: build
-    
+
     steps:
       - name: Download artifact from build job
         uses: actions/download-artifact@v4
         with:
           name: node-app
 
-      - name: Set up Node.js version
-        uses: actions/setup-node@v3
-        with:
-          node-version: '20.x'
-
-      - name: Install production dependencies
-        working-directory: ./server
-        run: npm install --omit=dev
-
-      - name: 'Deploy to Azure Web App'
+      - name: "Deploy to Azure Web App"
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
         with:
-          app-name: 'insider-api'
-          slot-name: 'Production'
-          package: ./server
+          app-name: "insider-api"
+          slot-name: "Production"
+          package: .
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_4EF5F7F6068743B6B03A3E9C7032EBEA }}
