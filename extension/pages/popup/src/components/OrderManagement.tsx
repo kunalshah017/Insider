@@ -19,8 +19,8 @@ interface Order {
     size_matched?: string;
     outcome?: string;
     status: string;
-    created_at?: string;
-    createdAt?: string;
+    created_at?: string | number;
+    createdAt?: string | number;
     expiration?: string;
 }
 
@@ -154,11 +154,16 @@ export function OrderManagement({ activeTab }: OrderManagementProps) {
             const localOrders = Array.isArray(localResponse.data) ? localResponse.data : [];
 
             if (apiResponse.error) {
-                const liveLocalOrders = localOrders.filter((o) => o.status === 'live');
+                // Filter local orders for live status (case-insensitive)
+                const liveLocalOrders = localOrders.filter((o) => o.status?.toLowerCase() === 'live');
                 setOrders(liveLocalOrders);
             } else if (apiResponse.data) {
+                // Filter API orders for live/open status (case-insensitive)
                 const apiOrders = Array.isArray(apiResponse.data)
-                    ? apiResponse.data.filter((o) => o.status === 'live' || o.status === 'open')
+                    ? apiResponse.data.filter((o) => {
+                        const status = o.status?.toLowerCase();
+                        return status === 'live' || status === 'open';
+                    })
                     : [];
                 setOrders(apiOrders);
             }
@@ -344,15 +349,25 @@ export function OrderManagement({ activeTab }: OrderManagementProps) {
         return parseFloat(order.size || '0').toFixed(2);
     };
 
-    const formatTime = (timestamp?: string) => {
+    const formatTime = (timestamp?: string | number) => {
         if (!timestamp) return '';
         let date: Date;
-        const num = parseInt(timestamp, 10);
-        if (!isNaN(num) && timestamp.match(/^\d+$/)) {
-            date = new Date(num * 1000);
+        
+        // Handle both number and string timestamps
+        if (typeof timestamp === 'number') {
+            // Unix timestamp (seconds)
+            date = new Date(timestamp * 1000);
         } else {
-            date = new Date(timestamp);
+            const num = parseInt(timestamp, 10);
+            if (!isNaN(num) && /^\d+$/.test(timestamp)) {
+                // String that looks like a Unix timestamp
+                date = new Date(num * 1000);
+            } else {
+                // ISO date string or other format
+                date = new Date(timestamp);
+            }
         }
+        
         if (isNaN(date.getTime())) return '';
 
         const now = new Date();

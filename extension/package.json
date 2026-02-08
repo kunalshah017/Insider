@@ -39,6 +39,9 @@
   },
   "dependencies": {
     "@tanstack/react-query": "^5.90.20",
+    "@uniswap/sdk-core": "^7.10.1",
+    "@uniswap/universal-router-sdk": "^4.30.0",
+    "@uniswap/v4-sdk": "^1.27.0",
     "ethers": "^5.8.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",

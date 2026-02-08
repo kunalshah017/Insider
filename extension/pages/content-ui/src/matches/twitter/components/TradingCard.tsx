@@ -11,6 +11,8 @@ import {
     FONT_IMPORT_URL,
 } from '@extension/shared';
 import { InlineTradingPanel } from './InlineTradingPanel';
+import { useMarketPrices } from '../../../hooks/useMarketPrices';
+import { AnimatedPrice } from '../../../components/AnimatedPrice';
 
 // Inject font stylesheet
 const fontLink = document.createElement('link');
@@ -164,6 +166,9 @@ interface MultiMarketData {
         volume: number;
         endDate: string;
         closed: boolean;
+        acceptingOrders: boolean;
+        clobTokenIds: string[];  // [yesTokenId, noTokenId] for order placement
+        outcomes: string[];  // e.g., ["Yes", "No"] or ["Up", "Down"]
     }>;
     totalVolume: number;
 }
@@ -210,6 +215,9 @@ export function TradingCard({ slug, type, fullUrl }: TradingCardProps) {
                             volume: parsed.volume,
                             endDate: m.endDate || '',
                             closed: m.closed || false,
+                            acceptingOrders: parsed.acceptingOrders,
+                            clobTokenIds: parsed.clobTokenIds,  // Include token IDs for order placement
+                            outcomes: parsed.outcomes,  // Include outcome labels (e.g., ["Up", "Down"])
                         };
                     });
 
@@ -273,8 +281,33 @@ export function TradingCard({ slug, type, fullUrl }: TradingCardProps) {
 
 function SingleMarketCard({ data, fullUrl }: { data: SingleMarketData; fullUrl: string }) {
     const { market, title, eventImage } = data;
-    const yesPrice = market.outcomePrices[0] ?? 0.5;
-    const noPrice = market.outcomePrices[1] ?? 0.5;
+    
+    // Get outcome labels from API (e.g., ["Up", "Down"] or ["Yes", "No"])
+    const outcome1Label = market.outcomes[0] || 'Yes';
+    const outcome2Label = market.outcomes[1] || 'No';
+    
+    // Check if market is resolved (closed or not accepting orders and end date passed)
+    const now = new Date();
+    const endDate = market.endDate ? new Date(market.endDate) : null;
+    const isResolved = market.closed || (!market.acceptingOrders && endDate && endDate < now);
+    
+    // Determine winner based on prices (if resolved, the one at ~1.00 is the winner)
+    const outcome1Wins = isResolved && market.outcomePrices[0] > 0.9;
+    const outcome2Wins = isResolved && market.outcomePrices[1] > 0.9;
+    
+    // Use live prices from WebSocket, falling back to initial API prices
+    const initialYesPrice = market.outcomePrices[0] ?? 0.5;
+    const initialNoPrice = market.outcomePrices[1] ?? 0.5;
+    
+    const livePrices = useMarketPrices(
+        market.clobTokenIds[0],  // Outcome 1 token ID
+        market.clobTokenIds[1],  // Outcome 2 token ID
+        { initialYesPrice, initialNoPrice }
+    );
+    
+    // Always use the prices from the hook (it manages fallback internally)
+    const yesPrice = livePrices.yes;
+    const noPrice = livePrices.no;
 
     // Order panel state
     const [orderPanel, setOrderPanel] = useState<{
@@ -319,111 +352,249 @@ function SingleMarketCard({ data, fullUrl }: { data: SingleMarketData; fullUrl: 
             </div>
 
             {/* Price Display */}
-            <div style={styles.priceContainer}>
-                {/* YES Button */}
-                <button
-                    onClick={() => openOrderPanel('YES', yesPrice)}
-                    style={styles.yesButton}
-                    onMouseEnter={(e) => {
-                        e.currentTarget.style.background = 'rgba(0, 217, 146, 0.25)';
-                        e.currentTarget.style.transform = 'scale(1.02)';
-                    }}
-                    onMouseLeave={(e) => {
-                        e.currentTarget.style.background = theme.colors.accentGlow;
-                        e.currentTarget.style.transform = 'scale(1)';
-                    }}
-                >
-                    <span
+            {isResolved ? (
+                /* Resolved Market Display */
+                <div style={styles.priceContainer}>
+                    <div
                         style={{
+                            flex: 1,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            padding: '16px',
+                            background: outcome1Wins 
+                                ? 'linear-gradient(145deg, rgba(0, 217, 146, 0.2) 0%, rgba(0, 217, 146, 0.08) 100%)'
+                                : 'rgba(30, 35, 42, 0.5)',
+                            border: outcome1Wins 
+                                ? '2px solid rgba(0, 217, 146, 0.6)'
+                                : '1px solid rgba(48, 54, 61, 0.4)',
+                            borderRadius: '12px',
+                            fontFamily: theme.fonts.primary,
+                            position: 'relative',
+                        }}
+                    >
+                        {outcome1Wins && (
+                            <span style={{
+                                position: 'absolute',
+                                top: '8px',
+                                right: '8px',
+                                fontSize: '16px',
+                            }}>✓</span>
+                        )}
+                        <span style={{
                             fontSize: '11px',
                             fontWeight: 600,
-                            color: theme.colors.accent,
-                            marginBottom: '2px',
+                            color: outcome1Wins ? theme.colors.accent : theme.colors.textMuted,
+                            marginBottom: '4px',
                             letterSpacing: '0.5px',
-                        }}
-                    >
-                        YES
-                    </span>
-                    <span
-                        style={{
-                            fontSize: '26px',
+                            textTransform: 'uppercase',
+                        }}>
+                            {outcome1Label}
+                        </span>
+                        <span style={{
+                            fontSize: '22px',
                             fontWeight: 700,
-                            color: theme.colors.accent,
+                            color: outcome1Wins ? theme.colors.accent : theme.colors.textMuted,
                             fontFamily: theme.fonts.mono,
-                        }}
-                    >
-                        {formatPriceAsPercent(yesPrice)}
-                    </span>
-                    <span
+                        }}>
+                            {outcome1Wins ? 'WON' : 'LOST'}
+                        </span>
+                    </div>
+                    <div
                         style={{
-                            fontSize: '10px',
-                            color: theme.colors.textMuted,
-                            marginTop: '2px',
-                            fontFamily: theme.fonts.mono,
+                            flex: 1,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            padding: '16px',
+                            background: outcome2Wins 
+                                ? 'linear-gradient(145deg, rgba(0, 217, 146, 0.2) 0%, rgba(0, 217, 146, 0.08) 100%)'
+                                : 'rgba(30, 35, 42, 0.5)',
+                            border: outcome2Wins 
+                                ? '2px solid rgba(0, 217, 146, 0.6)'
+                                : '1px solid rgba(48, 54, 61, 0.4)',
+                            borderRadius: '12px',
+                            fontFamily: theme.fonts.primary,
+                            position: 'relative',
                         }}
                     >
-                        {Math.round(yesPrice * 100)}¢/share
-                    </span>
-                </button>
+                        {outcome2Wins && (
+                            <span style={{
+                                position: 'absolute',
+                                top: '8px',
+                                right: '8px',
+                                fontSize: '16px',
+                            }}>✓</span>
+                        )}
+                        <span style={{
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            color: outcome2Wins ? theme.colors.accent : theme.colors.textMuted,
+                            marginBottom: '4px',
+                            letterSpacing: '0.5px',
+                            textTransform: 'uppercase',
+                        }}>
+                            {outcome2Label}
+                        </span>
+                        <span style={{
+                            fontSize: '22px',
+                            fontWeight: 700,
+                            color: outcome2Wins ? theme.colors.accent : theme.colors.textMuted,
+                            fontFamily: theme.fonts.mono,
+                        }}>
+                            {outcome2Wins ? 'WON' : 'LOST'}
+                        </span>
+                    </div>
+                </div>
+            ) : (
+                /* Active Market Display */
+                <div style={styles.priceContainer}>
+                    {/* Outcome 1 Button */}
+                    <button
+                        onClick={() => openOrderPanel('YES', yesPrice)}
+                        style={styles.yesButton}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.background = 'rgba(0, 217, 146, 0.25)';
+                            e.currentTarget.style.transform = 'scale(1.02)';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.background = theme.colors.accentGlow;
+                            e.currentTarget.style.transform = 'scale(1)';
+                        }}
+                    >
+                        <span
+                            style={{
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                color: theme.colors.accent,
+                                marginBottom: '2px',
+                                letterSpacing: '0.5px',
+                                textTransform: 'uppercase',
+                            }}
+                        >
+                            {outcome1Label}
+                        </span>
+                        <AnimatedPrice
+                            price={yesPrice}
+                            format="percent"
+                            fontSize={26}
+                            fontWeight={700}
+                            color={theme.colors.accent}
+                            fontFamily={theme.fonts.mono}
+                            isLive={livePrices.isLive}
+                        />
+                        <span
+                            style={{
+                                fontSize: '10px',
+                                color: theme.colors.textMuted,
+                                marginTop: '2px',
+                                fontFamily: theme.fonts.mono,
+                            }}
+                        >
+                            <AnimatedPrice
+                                price={yesPrice}
+                                format="cents"
+                                fontSize={10}
+                                fontWeight={400}
+                                color={theme.colors.textMuted}
+                                fontFamily={theme.fonts.mono}
+                            />
+                            /share
+                        </span>
+                    </button>
 
-                {/* NO Button */}
-                <button
-                    onClick={() => openOrderPanel('NO', noPrice)}
-                    style={styles.noButton}
-                    onMouseEnter={(e) => {
-                        e.currentTarget.style.background = 'rgba(255, 107, 107, 0.25)';
-                        e.currentTarget.style.transform = 'scale(1.02)';
-                    }}
-                    onMouseLeave={(e) => {
-                        e.currentTarget.style.background = 'rgba(255, 107, 107, 0.15)';
-                        e.currentTarget.style.transform = 'scale(1)';
-                    }}
-                >
-                    <span
-                        style={{
-                            fontSize: '11px',
-                            fontWeight: 600,
-                            color: theme.colors.accentSell,
-                            marginBottom: '2px',
-                            letterSpacing: '0.5px',
+                    {/* Outcome 2 Button */}
+                    <button
+                        onClick={() => openOrderPanel('NO', noPrice)}
+                        style={styles.noButton}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.background = 'rgba(255, 107, 107, 0.25)';
+                            e.currentTarget.style.transform = 'scale(1.02)';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.background = 'rgba(255, 107, 107, 0.15)';
+                            e.currentTarget.style.transform = 'scale(1)';
                         }}
                     >
-                        NO
-                    </span>
-                    <span
-                        style={{
-                            fontSize: '26px',
-                            fontWeight: 700,
-                            color: theme.colors.accentSell,
-                            fontFamily: theme.fonts.mono,
-                        }}
-                    >
-                        {formatPriceAsPercent(noPrice)}
-                    </span>
-                    <span
-                        style={{
-                            fontSize: '10px',
-                            color: theme.colors.textMuted,
-                            marginTop: '2px',
-                            fontFamily: theme.fonts.mono,
-                        }}
-                    >
-                        {Math.round(noPrice * 100)}¢/share
-                    </span>
-                </button>
-            </div>
+                        <span
+                            style={{
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                color: theme.colors.accentSell,
+                                marginBottom: '2px',
+                                letterSpacing: '0.5px',
+                                textTransform: 'uppercase',
+                            }}
+                        >
+                            {outcome2Label}
+                        </span>
+                        <AnimatedPrice
+                            price={noPrice}
+                            format="percent"
+                            fontSize={26}
+                            fontWeight={700}
+                            color={theme.colors.accentSell}
+                            fontFamily={theme.fonts.mono}
+                            isLive={livePrices.isLive}
+                        />
+                        <span
+                            style={{
+                                fontSize: '10px',
+                                color: theme.colors.textMuted,
+                                marginTop: '2px',
+                                fontFamily: theme.fonts.mono,
+                            }}
+                        >
+                            <AnimatedPrice
+                                price={noPrice}
+                                format="cents"
+                                fontSize={10}
+                                fontWeight={400}
+                                color={theme.colors.textMuted}
+                                fontFamily={theme.fonts.mono}
+                            />
+                            /share
+                        </span>
+                    </button>
+                </div>
+            )}
 
             {/* Footer - hide when trading panel is open */}
             {!orderPanel.isOpen && (
                 <div style={styles.footer}>
-                    <span
-                        style={{
-                            fontSize: '10px',
-                            color: theme.colors.textMuted,
-                        }}
-                    >
-                        Powered by Polymarket
-                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span
+                            style={{
+                                fontSize: '10px',
+                                color: theme.colors.textMuted,
+                            }}
+                        >
+                            Powered by Polymarket
+                        </span>
+                        {isResolved ? (
+                            <span
+                                style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    fontSize: '9px',
+                                    fontWeight: 600,
+                                    color: theme.colors.textMuted,
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.5px',
+                                    background: 'rgba(139, 148, 158, 0.2)',
+                                    padding: '2px 6px',
+                                    borderRadius: '4px',
+                                }}
+                            >
+                                RESOLVED
+                            </span>
+                        ) : (
+                            livePrices.isLive && <LiveIndicator />
+                        )}
+                    </div>
                     <a
                         href={fullUrl}
                         target="_blank"
@@ -453,6 +624,194 @@ function SingleMarketCard({ data, fullUrl }: { data: SingleMarketData; fullUrl: 
     );
 }
 
+// Live indicator component
+function LiveIndicator() {
+    return (
+        <span
+            style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                fontSize: '9px',
+                fontWeight: 600,
+                color: theme.colors.accent,
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+            }}
+        >
+            <span
+                style={{
+                    width: '6px',
+                    height: '6px',
+                    borderRadius: '50%',
+                    background: theme.colors.accent,
+                    animation: 'pulse 2s ease-in-out infinite',
+                }}
+            />
+            LIVE
+        </span>
+    );
+}
+
+// Individual market row with live prices for multi-market display
+interface MarketPriceRowProps {
+    market: {
+        id: string;
+        question: string;
+        groupItemTitle?: string;
+        yesPrice: number;
+        noPrice: number;
+        clobTokenIds: string[];
+        outcomes: string[];  // e.g., ["Yes", "No"] or ["Up", "Down"]
+    };
+    onYesClick: (clobTokenIds: string[], question: string, price: number) => void;
+    onNoClick: (clobTokenIds: string[], question: string, price: number) => void;
+}
+
+function MarketPriceRow({ market, onYesClick, onNoClick }: MarketPriceRowProps) {
+    // Get outcome labels from market data
+    const outcome1Label = market.outcomes?.[0] || 'Yes';
+    const outcome2Label = market.outcomes?.[1] || 'No';
+    
+    // Use live prices from WebSocket
+    const livePrices = useMarketPrices(
+        market.clobTokenIds[0],  // Outcome 1 token ID
+        market.clobTokenIds[1],  // Outcome 2 token ID
+        { initialYesPrice: market.yesPrice, initialNoPrice: market.noPrice }
+    );
+    
+    // Always use the prices from the hook (it manages fallback internally)
+    const yesPrice = livePrices.yes;
+    const noPrice = livePrices.no;
+    
+    return (
+        <div
+            style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '10px 12px',
+                marginBottom: '4px',
+                background: theme.colors.bgCard,
+                borderRadius: theme.radius.md,
+                border: `1px solid ${theme.colors.borderSubtle}`,
+            }}
+        >
+            <div style={{ flex: 1, minWidth: 0, marginRight: '12px' }}>
+                <div
+                    style={{
+                        fontSize: '12px',
+                        fontWeight: 500,
+                        color: theme.colors.textPrimary,
+                        lineHeight: 1.3,
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                    }}
+                >
+                    {market.groupItemTitle || market.question}
+                </div>
+                {livePrices.isLive && (
+                    <div style={{ marginTop: '4px' }}>
+                        <LiveIndicator />
+                    </div>
+                )}
+            </div>
+            <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                <button
+                    onClick={() => onYesClick(market.clobTokenIds, market.question, yesPrice)}
+                    style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        padding: '6px 10px',
+                        background: theme.colors.accentGlow,
+                        border: `1px solid ${theme.colors.accent}33`,
+                        borderRadius: theme.radius.sm,
+                        minWidth: '50px',
+                        cursor: 'pointer',
+                        transition: theme.transitions.fast,
+                        fontFamily: theme.fonts.primary,
+                    }}
+                    onMouseEnter={e => {
+                        e.currentTarget.style.background = 'rgba(0, 217, 146, 0.3)';
+                        e.currentTarget.style.transform = 'scale(1.02)';
+                    }}
+                    onMouseLeave={e => {
+                        e.currentTarget.style.background = theme.colors.accentGlow;
+                        e.currentTarget.style.transform = 'scale(1)';
+                    }}
+                >
+                    <span
+                        style={{
+                            fontSize: '9px',
+                            fontWeight: 600,
+                            color: theme.colors.accent,
+                            marginBottom: '2px',
+                            textTransform: 'uppercase',
+                        }}
+                    >
+                        {outcome1Label}
+                    </span>
+                    <AnimatedPrice
+                        price={yesPrice}
+                        format="percent"
+                        fontSize={14}
+                        fontWeight={700}
+                        color={theme.colors.accent}
+                        fontFamily={theme.fonts.mono}
+                    />
+                </button>
+                <button
+                    onClick={() => onNoClick(market.clobTokenIds, market.question, noPrice)}
+                    style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        padding: '6px 10px',
+                        background: 'rgba(255, 107, 107, 0.15)',
+                        border: `1px solid ${theme.colors.accentSell}33`,
+                        borderRadius: theme.radius.sm,
+                        minWidth: '50px',
+                        cursor: 'pointer',
+                        transition: theme.transitions.fast,
+                        fontFamily: theme.fonts.primary,
+                    }}
+                    onMouseEnter={e => {
+                        e.currentTarget.style.background = 'rgba(255, 107, 107, 0.3)';
+                        e.currentTarget.style.transform = 'scale(1.02)';
+                    }}
+                    onMouseLeave={e => {
+                        e.currentTarget.style.background = 'rgba(255, 107, 107, 0.15)';
+                        e.currentTarget.style.transform = 'scale(1)';
+                    }}
+                >
+                    <span
+                        style={{
+                            fontSize: '9px',
+                            fontWeight: 600,
+                            color: theme.colors.accentSell,
+                            marginBottom: '2px',
+                            textTransform: 'uppercase',
+                        }}
+                    >
+                        {outcome2Label}
+                    </span>
+                    <AnimatedPrice
+                        price={noPrice}
+                        format="percent"
+                        fontSize={14}
+                        fontWeight={700}
+                        color={theme.colors.accentSell}
+                        fontFamily={theme.fonts.mono}
+                    />
+                </button>
+            </div>
+        </div>
+    );
+}
+
 function MultiMarketCard({ data, fullUrl }: { data: MultiMarketData; fullUrl: string }) {
     const [showResolved, setShowResolved] = useState(false);
     const activeMarkets = data.markets.filter(m => !m.closed);
@@ -463,24 +822,26 @@ function MultiMarketCard({ data, fullUrl }: { data: MultiMarketData; fullUrl: st
         isOpen: boolean;
         outcome: 'YES' | 'NO';
         price: number;
-        marketId: string;
+        tokenId: string;  // The CLOB token ID for the selected outcome
         marketQuestion: string;
-    }>({ isOpen: false, outcome: 'YES', price: 0.5, marketId: '', marketQuestion: '' });
+    }>({ isOpen: false, outcome: 'YES', price: 0.5, tokenId: '', marketQuestion: '' });
 
-    const openOrderPanel = (marketId: string, marketQuestion: string, outcome: 'YES' | 'NO', price: number) => {
-        setOrderPanel({ isOpen: true, outcome, price, marketId, marketQuestion });
+    const openOrderPanel = (clobTokenIds: string[], marketQuestion: string, outcome: 'YES' | 'NO', price: number) => {
+        // Select the correct token ID based on outcome: index 0 = YES, index 1 = NO
+        const tokenId = outcome === 'YES' ? clobTokenIds[0] : clobTokenIds[1];
+        setOrderPanel({ isOpen: true, outcome, price, tokenId, marketQuestion });
     };
 
     const closeOrderPanel = () => {
         setOrderPanel({ ...orderPanel, isOpen: false });
     };
 
-    const handleYesClick = (marketId: string, marketQuestion: string, yesPrice: number) => {
-        openOrderPanel(marketId, marketQuestion, 'YES', yesPrice);
+    const handleYesClick = (clobTokenIds: string[], marketQuestion: string, yesPrice: number) => {
+        openOrderPanel(clobTokenIds, marketQuestion, 'YES', yesPrice);
     };
 
-    const handleNoClick = (marketId: string, marketQuestion: string, noPrice: number) => {
-        openOrderPanel(marketId, marketQuestion, 'NO', noPrice);
+    const handleNoClick = (clobTokenIds: string[], marketQuestion: string, noPrice: number) => {
+        openOrderPanel(clobTokenIds, marketQuestion, 'NO', noPrice);
     };
 
     return (
@@ -534,128 +895,12 @@ function MultiMarketCard({ data, fullUrl }: { data: MultiMarketData; fullUrl: st
             >
                 {activeMarkets.length > 0 ? (
                     activeMarkets.map(market => (
-                        <div
+                        <MarketPriceRow
                             key={market.id}
-                            style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                padding: '10px 12px',
-                                marginBottom: '4px',
-                                background: theme.colors.bgCard,
-                                borderRadius: theme.radius.md,
-                                border: `1px solid ${theme.colors.borderSubtle}`,
-                            }}
-                        >
-                            <div style={{ flex: 1, minWidth: 0, marginRight: '12px' }}>
-                                <div
-                                    style={{
-                                        fontSize: '12px',
-                                        fontWeight: 500,
-                                        color: theme.colors.textPrimary,
-                                        lineHeight: 1.3,
-                                        display: '-webkit-box',
-                                        WebkitLineClamp: 2,
-                                        WebkitBoxOrient: 'vertical',
-                                        overflow: 'hidden',
-                                    }}
-                                >
-                                    {market.groupItemTitle || market.question}
-                                </div>
-                            </div>
-                            <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
-                                <button
-                                    onClick={() => handleYesClick(market.id, market.question, market.yesPrice)}
-                                    style={{
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        alignItems: 'center',
-                                        padding: '6px 10px',
-                                        background: theme.colors.accentGlow,
-                                        border: `1px solid ${theme.colors.accent}33`,
-                                        borderRadius: theme.radius.sm,
-                                        minWidth: '50px',
-                                        cursor: 'pointer',
-                                        transition: theme.transitions.fast,
-                                        fontFamily: theme.fonts.primary,
-                                    }}
-                                    onMouseEnter={e => {
-                                        e.currentTarget.style.background = 'rgba(0, 217, 146, 0.3)';
-                                        e.currentTarget.style.transform = 'scale(1.02)';
-                                    }}
-                                    onMouseLeave={e => {
-                                        e.currentTarget.style.background = theme.colors.accentGlow;
-                                        e.currentTarget.style.transform = 'scale(1)';
-                                    }}
-                                >
-                                    <span
-                                        style={{
-                                            fontSize: '9px',
-                                            fontWeight: 600,
-                                            color: theme.colors.accent,
-                                            marginBottom: '2px',
-                                        }}
-                                    >
-                                        YES
-                                    </span>
-                                    <span
-                                        style={{
-                                            fontSize: '14px',
-                                            fontWeight: 700,
-                                            color: theme.colors.accent,
-                                            fontFamily: theme.fonts.mono,
-                                        }}
-                                    >
-                                        {formatPriceAsPercent(market.yesPrice)}
-                                    </span>
-                                </button>
-                                <button
-                                    onClick={() => handleNoClick(market.id, market.question, market.noPrice)}
-                                    style={{
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        alignItems: 'center',
-                                        padding: '6px 10px',
-                                        background: 'rgba(255, 107, 107, 0.15)',
-                                        border: `1px solid ${theme.colors.accentSell}33`,
-                                        borderRadius: theme.radius.sm,
-                                        minWidth: '50px',
-                                        cursor: 'pointer',
-                                        transition: theme.transitions.fast,
-                                        fontFamily: theme.fonts.primary,
-                                    }}
-                                    onMouseEnter={e => {
-                                        e.currentTarget.style.background = 'rgba(255, 107, 107, 0.3)';
-                                        e.currentTarget.style.transform = 'scale(1.02)';
-                                    }}
-                                    onMouseLeave={e => {
-                                        e.currentTarget.style.background = 'rgba(255, 107, 107, 0.15)';
-                                        e.currentTarget.style.transform = 'scale(1)';
-                                    }}
-                                >
-                                    <span
-                                        style={{
-                                            fontSize: '9px',
-                                            fontWeight: 600,
-                                            color: theme.colors.accentSell,
-                                            marginBottom: '2px',
-                                        }}
-                                    >
-                                        NO
-                                    </span>
-                                    <span
-                                        style={{
-                                            fontSize: '14px',
-                                            fontWeight: 700,
-                                            color: theme.colors.accentSell,
-                                            fontFamily: theme.fonts.mono,
-                                        }}
-                                    >
-                                        {formatPriceAsPercent(market.noPrice)}
-                                    </span>
-                                </button>
-                            </div>
-                        </div>
+                            market={market}
+                            onYesClick={handleYesClick}
+                            onNoClick={handleNoClick}
+                        />
                     ))
                 ) : (
                     <div
@@ -797,7 +1042,7 @@ function MultiMarketCard({ data, fullUrl }: { data: MultiMarketData; fullUrl: st
                 onClose={closeOrderPanel}
                 marketTitle={orderPanel.marketQuestion || data.title}
                 outcome={orderPanel.outcome}
-                tokenId={orderPanel.marketId}
+                tokenId={orderPanel.tokenId}
                 price={orderPanel.price}
             />
         </div>

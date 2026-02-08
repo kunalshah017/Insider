@@ -13,6 +13,7 @@
 
 import { useState, useCallback } from 'react';
 import type { TradingSession } from '@extension/shared/lib/polymarket/session-types';
+import { getSessionWalletAddress, getSessionApiCredentials } from '@extension/shared/lib/polymarket/session-types';
 import { ethereumBridge } from '../ethereum-bridge';
 import {
   buildOrderData,
@@ -31,6 +32,7 @@ import {
   NEG_RISK_CTF_EXCHANGE_ADDRESS,
   type TokenCheckResult,
 } from '../utils/token-utils';
+import { safeSendMessage } from '../utils/chrome-messaging';
 
 interface OrderParams {
   tokenId: string;
@@ -58,11 +60,12 @@ export function useOrder(): UseOrderResult {
 
   const checkSession = useCallback(async (): Promise<TradingSession | null> => {
     try {
-      const response = await chrome.runtime.sendMessage({ type: 'GET_TRADING_SESSION' });
+      const response = await safeSendMessage<TradingSession>({ type: 'GET_TRADING_SESSION' });
       if (response.error) {
+        console.error('[Insider] Session check failed:', response.error);
         return null;
       }
-      return response.data as TradingSession;
+      return response.data ?? null;
     } catch (err) {
       console.error('[Insider] Failed to check session:', err);
       return null;
@@ -187,10 +190,16 @@ export function useOrder(): UseOrderResult {
     try {
       console.log('[Insider] Starting order submission flow...');
 
-      // Get wallet address from session
-      const walletAddress = session.walletAddress;
+      // Get wallet address from session (handles both formats)
+      const walletAddress = getSessionWalletAddress(session);
       if (!walletAddress) {
         throw new Error('No wallet address in session');
+      }
+
+      // Get API credentials from session (handles both formats)
+      const apiCreds = getSessionApiCredentials(session);
+      if (!apiCreds) {
+        throw new Error('No API credentials in session');
       }
 
       // Step 1: Build order data structure
@@ -200,7 +209,7 @@ export function useOrder(): UseOrderResult {
         side: order.side.toUpperCase() as 'BUY' | 'SELL',
         price: order.price,
         size: order.size,
-        feeRateBps: 0,
+        feeRateBps: 1000, // Polymarket taker fee: 10% (1000 bps)
         nonce: 0,
       };
 
@@ -236,14 +245,14 @@ export function useOrder(): UseOrderResult {
 
       // Step 5: Send to background script for submission
       console.log('[Insider] Submitting signed order to background...');
-      const response = await chrome.runtime.sendMessage({
+      const response = await safeSendMessage<{ success: boolean }>({
         type: 'SUBMIT_SIGNED_ORDER',
         signedOrder,
         credentials: {
           address: walletAddress,
-          apiKey: session.apiKey,
-          apiSecret: session.apiSecret,
-          passphrase: session.passphrase,
+          apiKey: apiCreds.apiKey,
+          apiSecret: apiCreds.apiSecret,
+          passphrase: apiCreds.passphrase,
         },
         negRisk: order.negRisk || false,
       });

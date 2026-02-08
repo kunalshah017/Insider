@@ -9,6 +9,7 @@ import { useState, useEffect } from 'react';
 import { useOrder, useWallet } from '../../../hooks';
 import { formatPriceAsPercent } from '@extension/shared';
 import type { TokenCheckResult } from '../../../utils/token-utils';
+import { SwapModal } from './SwapModal';
 
 interface InlineTradingPanelProps {
     isOpen: boolean;
@@ -19,7 +20,7 @@ interface InlineTradingPanelProps {
     price: number;
 }
 
-type PanelView = 'order' | 'connect' | 'setup' | 'approve';
+type PanelView = 'order' | 'connect' | 'setup' | 'approve' | 'swap';
 
 export function InlineTradingPanel({
     isOpen,
@@ -45,6 +46,7 @@ export function InlineTradingPanel({
     const [amount, setAmount] = useState('');
     const [balance, setBalance] = useState<number | null>(null);
     const [orderSuccess, setOrderSuccess] = useState(false);
+    const [showSwapModal, setShowSwapModal] = useState(false);
 
     // Order type: 'market' or 'limit'
     const [orderType, setOrderType] = useState<'market' | 'limit'>('market');
@@ -666,18 +668,60 @@ export function InlineTradingPanel({
                         </div>
                     )}
 
-                    {/* Insufficient balance warning */}
+                    {/* Insufficient balance warning with Get USDC.e button */}
                     {numAmount > 0 && balance !== null && numAmount > balance && (
                         <div style={{
-                            background: 'rgba(239, 68, 68, 0.15)',
-                            border: '1px solid rgba(239, 68, 68, 0.3)',
-                            borderRadius: '6px',
-                            padding: '8px',
+                            background: 'rgba(99, 102, 241, 0.1)',
+                            border: '1px solid rgba(99, 102, 241, 0.3)',
+                            borderRadius: '8px',
+                            padding: '12px',
                             marginBottom: '12px',
-                            fontSize: '11px',
-                            color: '#ef4444',
                         }}>
-                            Insufficient balance. You have ${balance.toFixed(2)} USDC.e
+                            <div style={{
+                                fontSize: '12px',
+                                color: '#a3a3a3',
+                                marginBottom: '10px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between'
+                            }}>
+                                <span>
+                                    Need <span style={{ color: '#f0f6fc', fontWeight: 600 }}>${(numAmount - balance).toFixed(2)}</span> more USDC.e
+                                </span>
+                                <span style={{ color: '#71767b', fontSize: '10px' }}>
+                                    Balance: ${balance.toFixed(2)}
+                                </span>
+                            </div>
+                            <button
+                                onClick={() => setShowSwapModal(true)}
+                                style={{
+                                    width: '100%',
+                                    padding: '10px',
+                                    background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    color: 'white',
+                                    fontSize: '13px',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '6px',
+                                    transition: 'all 0.2s ease',
+                                }}
+                            >
+                                <span>🔄</span>
+                                Swap tokens for USDC.e
+                            </button>
+                            <div style={{
+                                fontSize: '10px',
+                                color: '#71767b',
+                                marginTop: '8px',
+                                textAlign: 'center'
+                            }}>
+                                Powered by Uniswap v4 • Best rates guaranteed
+                            </div>
                         </div>
                     )}
 
@@ -738,6 +782,29 @@ export function InlineTradingPanel({
                         }
                     </button>
                 </div>
+            )}
+
+            {/* Swap Modal */}
+            {showSwapModal && address && (
+                <SwapModal
+                    isOpen={showSwapModal}
+                    onClose={() => setShowSwapModal(false)}
+                    onSwapComplete={(usdcAmount) => {
+                        console.log('[InlineTradingPanel] Swap completed, refreshing balance...');
+                        // Refresh balance after swap
+                        if (address) {
+                            checkRequirements(address, 0, false).then((result) => {
+                                if (result) {
+                                    setBalance(result.balance);
+                                    console.log('[InlineTradingPanel] New balance:', result.balance);
+                                }
+                            });
+                        }
+                        // Modal will close via onClose callback from SwapModal
+                    }}
+                    requiredAmount={numAmount > (balance || 0) ? numAmount - (balance || 0) : 0}
+                    walletAddress={address}
+                />
             )}
         </div>
     );

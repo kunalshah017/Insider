@@ -253,6 +253,51 @@
             });
           break;
 
+        case 'INSIDER_WALLET_GET_BALANCE':
+          if (!ethereum) {
+            window.postMessage(
+              {
+                type: 'INSIDER_WALLET_RESPONSE',
+                id: id,
+                success: false,
+                error: 'No ethereum provider',
+              },
+              '*',
+            );
+            return;
+          }
+
+          var balanceAddress = payload.address;
+
+          ethereum
+            .request({
+              method: 'eth_getBalance',
+              params: [balanceAddress, 'latest'],
+            })
+            .then(function (balance) {
+              window.postMessage(
+                {
+                  type: 'INSIDER_WALLET_RESPONSE',
+                  id: id,
+                  success: true,
+                  data: { balance: balance },
+                },
+                '*',
+              );
+            })
+            .catch(function (balanceError) {
+              window.postMessage(
+                {
+                  type: 'INSIDER_WALLET_RESPONSE',
+                  id: id,
+                  success: false,
+                  error: balanceError.message || 'Failed to get balance',
+                },
+                '*',
+              );
+            });
+          break;
+
         case 'INSIDER_WALLET_SEND_TX':
           if (!ethereum) {
             window.postMessage(

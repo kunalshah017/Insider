@@ -5,3 +5,4 @@ export * from './constants.js';
 export * from './session-types.js';
 export * from './approvals.js';
 export * from './api-credentials.js';
+export * from './websocket.js';

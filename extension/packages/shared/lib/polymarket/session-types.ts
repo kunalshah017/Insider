@@ -8,14 +8,65 @@ export interface UserApiCredentials {
   passphrase: string;
 }
 
+/**
+ * TradingSession supports two formats for backward compatibility:
+ * - New format: eoaAddress, apiCredentials (nested)
+ * - Legacy format: walletAddress, apiKey/apiSecret/passphrase (flat)
+ */
 export interface TradingSession {
-  eoaAddress: string;
-  safeAddress: string;
-  isSafeDeployed: boolean;
-  hasApiCredentials: boolean;
-  hasApprovals: boolean;
+  // New format (preferred)
+  eoaAddress?: string;
+  safeAddress?: string;
+  isSafeDeployed?: boolean;
+  hasApiCredentials?: boolean;
+  hasApprovals?: boolean;
   apiCredentials?: UserApiCredentials;
-  lastChecked: number;
+  lastChecked?: number;
+
+  // Legacy format (for backward compatibility)
+  walletAddress?: string;
+  apiKey?: string;
+  apiSecret?: string;
+  passphrase?: string;
+  isActive?: boolean;
+  createdAt?: number;
+}
+
+/**
+ * Helper to get wallet address from session (handles both formats)
+ */
+export function getSessionWalletAddress(session: TradingSession | null): string | null {
+  if (!session) return null;
+  return session.eoaAddress || session.walletAddress || null;
+}
+
+/**
+ * Helper to get API credentials from session (handles both formats)
+ */
+export function getSessionApiCredentials(
+  session: TradingSession | null,
+): { apiKey: string; apiSecret: string; passphrase: string } | null {
+  if (!session) return null;
+
+  // Try new format first
+  if (session.apiCredentials) {
+    return {
+      apiKey: session.apiCredentials.key,
+      apiSecret: session.apiCredentials.secret,
+      passphrase: session.apiCredentials.passphrase,
+    };
+  }
+
+  // Fall back to legacy format
+  if (session.apiKey && session.apiSecret && session.passphrase) {
+    return {
+      apiKey: session.apiKey,
+      apiSecret: session.apiSecret,
+      passphrase: session.passphrase,
+    };
+  }
+
+  return null;
 }
 
 export type SessionStep =

@@ -52,24 +52,66 @@ export function parseMarket(market: PolymarketMarket): ParsedMarket {
 }
 
 /**
+ * Check if the extension context is still valid
+ */
+function isExtensionContextValid(): boolean {
+  try {
+    // This will throw if the extension context is invalidated
+    return typeof chrome?.runtime?.id === 'string' && chrome.runtime.id.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Send a message to the background script and wait for response
  * This bypasses CORS restrictions since background scripts can make cross-origin requests
+ * Includes retry logic for handling service worker termination
  */
-async function sendToBackground<T>(message: Record<string, unknown>): Promise<T | null> {
+async function sendToBackground<T>(message: Record<string, unknown>, retries = 2): Promise<T | null> {
+  // Check if extension context is valid before attempting to send
+  if (!isExtensionContextValid()) {
+    console.error('[Polymarket] Extension context invalidated. Please refresh the page.');
+    throw new Error('Extension context invalidated. Please refresh the page to reconnect.');
+  }
+
   return new Promise(resolve => {
-    chrome.runtime.sendMessage(message, (response: { data?: T; error?: string }) => {
-      if (chrome.runtime.lastError) {
-        console.error('[Polymarket] Chrome runtime error:', chrome.runtime.lastError.message);
-        resolve(null);
-        return;
-      }
-      if (response?.error) {
-        console.error('[Polymarket] Background error:', response.error);
-        resolve(null);
-        return;
-      }
-      resolve(response?.data ?? null);
-    });
+    try {
+      chrome.runtime.sendMessage(message, async (response: { data?: T; error?: string }) => {
+        if (chrome.runtime.lastError) {
+          const errorMessage = chrome.runtime.lastError.message || '';
+          console.error('[Polymarket] Chrome runtime error:', errorMessage);
+
+          // Check for extension context invalidation
+          if (errorMessage.includes('Extension context invalidated') || errorMessage.includes('message port closed')) {
+            console.error('[Polymarket] Extension context lost. Please refresh the page.');
+            resolve(null);
+            return;
+          }
+
+          // Retry for transient errors (service worker waking up)
+          if (retries > 0 && errorMessage.includes('Receiving end does not exist')) {
+            console.log('[Polymarket] Background not ready, retrying in 500ms...');
+            await new Promise(r => setTimeout(r, 500));
+            const result = await sendToBackground<T>(message, retries - 1);
+            resolve(result);
+            return;
+          }
+
+          resolve(null);
+          return;
+        }
+        if (response?.error) {
+          console.error('[Polymarket] Background error:', response.error);
+          resolve(null);
+          return;
+        }
+        resolve(response?.data ?? null);
+      });
+    } catch (err) {
+      console.error('[Polymarket] Failed to send message:', err);
+      resolve(null);
+    }
   });
 }
 

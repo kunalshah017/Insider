@@ -8,7 +8,9 @@
 import { useState, useCallback, useEffect } from 'react';
 import { ethereumBridge } from '../ethereum-bridge';
 import type { TradingSession } from '@extension/shared/lib/polymarket/session-types';
+import { getSessionWalletAddress } from '@extension/shared/lib/polymarket/session-types';
 import { CEB_CLOB_API_URL } from '@extension/env';
+import { safeSendMessage, isExtensionContextValid } from '../utils/chrome-messaging';
 
 // Storage key for session
 const SESSION_STORAGE_KEY = 'insider_trading_session';
@@ -65,7 +67,7 @@ export function useWallet(): UseWalletResult {
         if (stored[SESSION_STORAGE_KEY]) {
           const savedSession = stored[SESSION_STORAGE_KEY] as TradingSession;
           setSession(savedSession);
-          setAddress(savedSession.walletAddress);
+          setAddress(getSessionWalletAddress(savedSession));
           setIsConnected(true);
         }
       } catch (err) {
@@ -216,14 +218,16 @@ export function useWallet(): UseWalletResult {
       // Save to chrome.storage
       await chrome.storage.local.set({ [SESSION_STORAGE_KEY]: newSession });
 
-      // Notify background script
-      try {
-        await chrome.runtime.sendMessage({
-          type: 'SET_TRADING_SESSION',
-          session: newSession,
-        });
-      } catch (err) {
-        console.warn('[Insider] Could not notify background script:', err);
+      // Notify background script (if context is still valid)
+      if (isExtensionContextValid()) {
+        try {
+          await safeSendMessage({
+            type: 'SET_TRADING_SESSION',
+            session: newSession,
+          });
+        } catch (err) {
+          console.warn('[Insider] Could not notify background script:', err);
+        }
       }
 
       setSession(newSession);
@@ -244,7 +248,9 @@ export function useWallet(): UseWalletResult {
   const disconnect = useCallback(async () => {
     try {
       await chrome.storage.local.remove(SESSION_STORAGE_KEY);
-      await chrome.runtime.sendMessage({ type: 'CLEAR_TRADING_SESSION' });
+      if (isExtensionContextValid()) {
+        await safeSendMessage({ type: 'CLEAR_TRADING_SESSION' });
+      }
     } catch (err) {
       console.error('[Insider] Disconnect error:', err);
     }

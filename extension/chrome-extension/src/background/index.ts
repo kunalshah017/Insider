@@ -454,9 +454,11 @@ chrome.runtime.onMessage.addListener((message: MessageType, _sender, sendRespons
               return;
             }
 
-            const data = await response.json();
-            console.log('[Insider Background] Fetched orders:', data);
-            sendResponse({ data });
+            const responseData = await response.json();
+            console.log('[Insider Background] Fetched orders:', responseData);
+            // Extract the orders array from the response (API returns {data: [...], next_cursor, ...})
+            const orders = Array.isArray(responseData.data) ? responseData.data : responseData;
+            sendResponse({ data: orders });
           } catch (error) {
             console.error('[Insider Background] Error fetching orders:', error);
             sendResponse({ error: String(error) });
@@ -788,7 +790,7 @@ chrome.runtime.onMessage.addListener((message: MessageType, _sender, sendRespons
                 console.log('[Insider Background] Got redirect Location:', location);
                 // If it's another redirect (like to polymarket), follow it
                 if (location.includes('polymarket.com')) {
-                  sendResponse({ resolvedUrl: location });
+                  sendResponse({ data: { resolvedUrl: location } });
                   break;
                 }
                 // Follow the next redirect
@@ -798,7 +800,7 @@ chrome.runtime.onMessage.addListener((message: MessageType, _sender, sendRespons
                 });
                 if (nextResponse.url && nextResponse.url.includes('polymarket.com')) {
                   console.log('[Insider Background] Final URL:', nextResponse.url);
-                  sendResponse({ resolvedUrl: nextResponse.url });
+                  sendResponse({ data: { resolvedUrl: nextResponse.url } });
                   break;
                 }
               }
@@ -818,7 +820,7 @@ chrome.runtime.onMessage.addListener((message: MessageType, _sender, sendRespons
             // The final URL after redirects
             if (response.url && response.url !== url) {
               console.log('[Insider Background] Resolved to:', response.url);
-              sendResponse({ resolvedUrl: response.url });
+              sendResponse({ data: { resolvedUrl: response.url } });
             } else {
               // Try to extract URL from page content (t.co sometimes uses JS redirects)
               const text = await response.text();
@@ -828,7 +830,7 @@ chrome.runtime.onMessage.addListener((message: MessageType, _sender, sendRespons
                 text.match(/location\.href\s*=\s*["']([^"']+polymarket[^"']+)["']/i);
               if (urlMatch && urlMatch[1]) {
                 console.log('[Insider Background] Extracted URL from content:', urlMatch[1]);
-                sendResponse({ resolvedUrl: urlMatch[1] });
+                sendResponse({ data: { resolvedUrl: urlMatch[1] } });
               } else {
                 console.log('[Insider Background] Could not resolve URL, page content length:', text.length);
                 sendResponse({ error: 'Could not resolve URL' });

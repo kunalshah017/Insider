@@ -174,6 +174,13 @@ export const ethereumBridge = {
   },
 
   /**
+   * Get native token balance (POL/MATIC)
+   */
+  async getBalance(address: string): Promise<{ balance: string }> {
+    return sendRequest('INSIDER_WALLET_GET_BALANCE', { address });
+  },
+
+  /**
    * Send a transaction (for approvals, etc.)
    */
   async sendTransaction(tx: { to: string; from: string; data: string; value?: string }): Promise<{ hash: string }> {

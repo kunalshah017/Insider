@@ -10,6 +10,7 @@ import {
     type UserOrder,
     SignatureType,
 } from '../../utils/order-builder';
+import { safeSendMessage, isExtensionContextValid } from '../../utils/chrome-messaging';
 
 // Contract addresses for CTF approval
 const CTF_CONTRACT_ADDRESS = '0x4D97DCd97eC945f40cF65F87097ACe5EA0476045';
@@ -125,7 +126,7 @@ async function handleSellOrderSigning(
             side: 'SELL',
             price,
             size,
-            feeRateBps: 0,
+            feeRateBps: 1000, // Polymarket taker fee: 10% (1000 bps)
             nonce: 0,
         };
 
@@ -160,7 +161,7 @@ async function handleSellOrderSigning(
 
         // Step 5: Submit via background script
         console.log('[Insider] Submitting signed sell order to background...');
-        const response = await chrome.runtime.sendMessage({
+        const response = await safeSendMessage<{ success: boolean }>({
             type: 'SUBMIT_SIGNED_ORDER',
             signedOrder,
             credentials: {
@@ -362,23 +363,29 @@ function findStandaloneCardPreviews(): Array<{ card: Element; parsed: ParsedPoly
  * Uses a background script message since content scripts can't follow redirects due to CORS
  */
 async function resolveTcoLink(tcoUrl: string): Promise<string | null> {
+    // Check if extension context is still valid
+    if (!isExtensionContextValid()) {
+        console.log('[Insider] Extension context invalidated, cannot resolve t.co link');
+        return null;
+    }
+
     try {
         console.log('[Insider] Sending t.co link to background for resolution:', tcoUrl);
 
         // Ask the background script to resolve the URL
-        const response = await chrome.runtime.sendMessage({
+        const response = await safeSendMessage<{ resolvedUrl?: string }>({
             type: 'RESOLVE_TCO_LINK',
             url: tcoUrl
         });
 
         console.log('[Insider] Background response:', response);
 
-        if (response && response.resolvedUrl) {
-            console.log('[Insider] Resolved t.co link:', tcoUrl, '->', response.resolvedUrl);
-            return response.resolvedUrl;
+        if (response.data?.resolvedUrl) {
+            console.log('[Insider] Resolved t.co link:', tcoUrl, '->', response.data.resolvedUrl);
+            return response.data.resolvedUrl;
         }
 
-        if (response && response.error) {
+        if (response.error) {
             console.log('[Insider] Error from background:', response.error);
         }
 
