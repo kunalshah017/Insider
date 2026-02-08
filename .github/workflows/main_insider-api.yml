@@ -26,16 +26,11 @@ jobs:
         with:
           node-version: '20.x'
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v2
-        with:
-          version: 9
-
       - name: Install dependencies and build
         working-directory: ./server
         run: |
-          pnpm install
-          pnpm run build
+          npm install
+          npm run build
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
@@ -44,7 +39,7 @@ jobs:
           path: |
             server/dist
             server/package.json
-            server/pnpm-lock.yaml
+            server/package-lock.json
 
   deploy:
     runs-on: ubuntu-latest
@@ -56,11 +51,6 @@ jobs:
         with:
           name: node-app
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v2
-        with:
-          version: 9
-
       - name: Set up Node.js version
         uses: actions/setup-node@v3
         with:
@@ -68,7 +58,7 @@ jobs:
 
       - name: Install production dependencies
         working-directory: ./server
-        run: pnpm install --prod
+        run: npm install --omit=dev
 
       - name: 'Deploy to Azure Web App'
         id: deploy-to-webapp
